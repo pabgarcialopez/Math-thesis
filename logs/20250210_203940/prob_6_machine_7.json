@@ -1,0 +1,94 @@
+{
+    "transition_probability": 0.6,
+    "tm_parameters": {
+        "num_states": 4,
+        "input_symbols": [
+            "1",
+            "0"
+        ],
+        "blank_symbol": "_",
+        "initial_head_position": 1,
+        "accepting_states": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "transition_function": {
+            "0,1": [
+                2,
+                "1",
+                "R"
+            ],
+            "0,0": [
+                0,
+                "1",
+                "R"
+            ],
+            "0,_": [
+                2,
+                "1",
+                "L"
+            ],
+            "1,1": [
+                0,
+                "1",
+                "R"
+            ],
+            "1,_": [
+                3,
+                "0",
+                "L"
+            ],
+            "2,1": [
+                1,
+                "0",
+                "R"
+            ],
+            "2,0": [
+                0,
+                "1",
+                "R"
+            ],
+            "3,1": [
+                2,
+                "1",
+                "L"
+            ],
+            "3,0": [
+                2,
+                "0",
+                "R"
+            ],
+            "3,_": [
+                1,
+                "0",
+                "R"
+            ]
+        }
+    },
+    "input": "10111",
+    "execution": {
+        "num_steps": 8,
+        "result": "accepted"
+    },
+    "metrics": {
+        "equanimity_importance": 0.014453125,
+        "equanimity_subsets": -13.144241575210813,
+        "equanimity_subsets_normalized": 0.9932855926998078,
+        "entanglement": 8
+    },
+    "config_history": [
+        "1011100100",
+        "1011101010",
+        "1111101100",
+        "1111110010",
+        "1110110101",
+        "1110110100",
+        "1110110110",
+        "1110010101",
+        "1110010101"
+    ],
+    "projected_function": 269,
+    "timestamp": "2025-02-10T20:41:07.759892"
+}

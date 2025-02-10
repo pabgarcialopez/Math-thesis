@@ -1,6 +1,6 @@
 # tm/machine.py
 
-from tm.validators import validate_params, validate_transition_params, validate_binary_input
+from src.tm.validators import validate_params, validate_transition_params, validate_binary_input
 
 class TuringMachine:
     def __init__(self, num_states=4, input_symbols={'0', '1'}, blank_symbol='_',
@@ -51,13 +51,13 @@ class TuringMachine:
         
         # Generate accepting states if not provided.
         if accepting_states is None:
-            from tm.generators import generate_random_accepting_states
+            from src.tm.generators import generate_random_accepting_states
             accepting_states = generate_random_accepting_states(num_states=self.num_states)
         self.accepting_states = accepting_states
         
         # Generate transition function if not provided.
         if transition_function is None:
-            from tm.generators import generate_random_transitions
+            from src.tm.generators import generate_random_transitions
             transition_function = generate_random_transitions(self, trans_prob=trans_prob)
         self.transition_function = transition_function
         
@@ -124,6 +124,33 @@ class TuringMachine:
         state_bits = format(self.current_state, '02b')
         return tape_bits + head_bits + state_bits
     
+    def get_projected_configuration(self, config_choice="final"):
+        """
+        Retorna la proyección de la configuración (los 5 bits de la cinta)
+        a partir de la configuración elegida.
+        
+        Parámetros:
+          config_choice: 'initial', 'middle' o 'final'
+            - 'initial': toma la primera configuración registrada.
+            - 'middle': toma la configuración del medio de la historia.
+            - 'final' (por defecto): toma la última configuración.
+        
+        Si no hay historia registrada, retorna la proyección de la configuración
+        actual.
+        """
+        # Asegurarse de tener un historial; si no, usar la configuración actual.
+        if not self.config_history:
+            config = self.get_configuration()
+        else:
+            if config_choice == "initial":
+                config = self.config_history[0]
+            elif config_choice == "middle":
+                config = self.config_history[len(self.config_history) // 2]
+            else:  # "final" por defecto
+                config = self.config_history[-1]
+        # Retornamos los 5 primeros bits (la parte de la cinta)
+        return config[:5]
+    
     def step(self):
         """
         Execute a single step (transition) of the Turing Machine.
@@ -158,7 +185,7 @@ class TuringMachine:
             step_count += 1
         return "accepted" if self.is_accepting() else "rejected"
     
-    def get_history_vector(self):
+    def get_history_function(self):
         """
         Returns a vector (list) of 1024 entries (since configurations are 10 bits)
         representing the history function of the Turing Machine.

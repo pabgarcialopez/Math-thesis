@@ -1,0 +1,98 @@
+{
+    "transition_probability": 0.6,
+    "tm_parameters": {
+        "num_states": 4,
+        "input_symbols": [
+            "0",
+            "1"
+        ],
+        "blank_symbol": "_",
+        "initial_head_position": 1,
+        "accepting_states": [
+            1,
+            3
+        ],
+        "transition_function": {
+            "0,0": [
+                1,
+                "1",
+                "R"
+            ],
+            "0,1": [
+                1,
+                "0",
+                "R"
+            ],
+            "0,_": [
+                3,
+                "1",
+                "L"
+            ],
+            "1,0": [
+                3,
+                "1",
+                "L"
+            ],
+            "1,1": [
+                3,
+                "1",
+                "L"
+            ],
+            "1,_": [
+                3,
+                "1",
+                "R"
+            ],
+            "2,0": [
+                2,
+                "1",
+                "L"
+            ],
+            "2,1": [
+                3,
+                "0",
+                "R"
+            ],
+            "2,_": [
+                0,
+                "0",
+                "R"
+            ],
+            "3,1": [
+                2,
+                "0",
+                "L"
+            ],
+            "3,_": [
+                0,
+                "0",
+                "R"
+            ]
+        }
+    },
+    "input": "00111",
+    "execution": {
+        "num_steps": 9,
+        "result": "accepted"
+    },
+    "metrics": {
+        "equanimity_importance": 0.01484375,
+        "equanimity_subsets": -20.256185843452574,
+        "equanimity_subsets_normalized": 0.9918488226996528,
+        "entanglement": 6
+    },
+    "config_history": [
+        "0011100100",
+        "1011101001",
+        "1111100111",
+        "0111100110",
+        "1111100110",
+        "0111101011",
+        "0011100110",
+        "1011100110",
+        "0011101011",
+        "0011101011"
+    ],
+    "projected_function": 16843009,
+    "timestamp": "2025-02-10T20:58:45.327994"
+}

@@ -1,0 +1,93 @@
+{
+    "transition_probability": 0.8,
+    "tm_parameters": {
+        "num_states": 4,
+        "input_symbols": [
+            "1",
+            "0"
+        ],
+        "blank_symbol": "_",
+        "initial_head_position": 1,
+        "accepting_states": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "transition_function": {
+            "0,1": [
+                1,
+                "0",
+                "R"
+            ],
+            "0,_": [
+                1,
+                "0",
+                "L"
+            ],
+            "1,1": [
+                0,
+                "0",
+                "R"
+            ],
+            "1,0": [
+                3,
+                "0",
+                "L"
+            ],
+            "1,_": [
+                1,
+                "1",
+                "L"
+            ],
+            "2,0": [
+                1,
+                "1",
+                "R"
+            ],
+            "2,_": [
+                2,
+                "1",
+                "R"
+            ],
+            "3,1": [
+                2,
+                "1",
+                "L"
+            ],
+            "3,0": [
+                3,
+                "1",
+                "L"
+            ]
+        }
+    },
+    "input": "11111",
+    "execution": {
+        "num_steps": 12,
+        "result": "accepted"
+    },
+    "metrics": {
+        "equanimity_importance": 0.02265625,
+        "equanimity_subsets": -10.115949794224331,
+        "equanimity_subsets_normalized": 0.9905038670131139,
+        "entanglement": 12
+    },
+    "config_history": [
+        "1111100100",
+        "0111101001",
+        "0011101100",
+        "0001110001",
+        "0000110100",
+        "0000010101",
+        "0000010011",
+        "0001001111",
+        "0011001011",
+        "0111000111",
+        "1111000111",
+        "1111000110",
+        "1111000110"
+    ],
+    "projected_function": 4077060099,
+    "timestamp": "2025-02-10T20:41:43.187231"
+}

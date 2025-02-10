@@ -1,0 +1,61 @@
+{
+    "transition_probability": 0.4,
+    "tm_parameters": {
+        "num_states": 4,
+        "input_symbols": [
+            "1",
+            "0"
+        ],
+        "blank_symbol": "_",
+        "initial_head_position": 1,
+        "accepting_states": [
+            2
+        ],
+        "transition_function": {
+            "0,1": [
+                3,
+                "0",
+                "L"
+            ],
+            "0,_": [
+                1,
+                "1",
+                "L"
+            ],
+            "1,0": [
+                0,
+                "0",
+                "R"
+            ],
+            "2,0": [
+                2,
+                "1",
+                "L"
+            ],
+            "3,0": [
+                1,
+                "1",
+                "L"
+            ]
+        }
+    },
+    "input": "10101",
+    "execution": {
+        "num_steps": 3,
+        "result": "rejected"
+    },
+    "metrics": {
+        "equanimity_importance": 0.00546875,
+        "equanimity_subsets": -3.9196426179673938,
+        "equanimity_subsets_normalized": 0.9974946933322483,
+        "entanglement": 4
+    },
+    "config_history": [
+        "1010100100",
+        "0010100111",
+        "1010100101",
+        "1010100101"
+    ],
+    "projected_function": 67109888,
+    "timestamp": "2025-02-10T20:20:53.360886"
+}

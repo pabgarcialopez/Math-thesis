@@ -1,7 +1,7 @@
 # tm/generators.py
 
 import random
-from tm.machine import TuringMachine
+from src.tm.machine import TuringMachine
 
 def generate_random_transitions(turing_machine, trans_prob=0.5):
     """

@@ -2,13 +2,13 @@
 import numpy as np
 from tqdm import tqdm
 
-from tm.generators import generate_tm_input_pairs
-from tm.experiments import run_single_experiment, log_experiment
-from tm.logger import get_timestamped_log_dir
-from plotters import plot_metrics_vs_frequency, plot_equanimity_vs_entanglement_heatmap
+from src.tm.generators import generate_tm_input_pairs
+from src.tm.experiments import run_single_experiment, log_experiment
+from src.tm.logger import get_timestamped_log_dir
+from src.plotters import plot_metrics_vs_frequency, plot_equanimity_vs_entanglement_heatmap
 
 # Import configuration parameters
-import config
+import src.config as config
 
 def run_experiments(trans_probs, num_experiments, run_directory):
     """
