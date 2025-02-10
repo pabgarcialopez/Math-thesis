@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 
 def plot_metrics_vs_frequency(frequencies, eq_imp_values, eq_sub_values, eq_sub_norm_values, entanglement_values, save_path=None):
     """
@@ -7,13 +6,11 @@ def plot_metrics_vs_frequency(frequencies, eq_imp_values, eq_sub_values, eq_sub_
     
     Parameters:
         frequencies (list or np.array): The probability values for adding a transition.
-        eq_imp_values (list or np.array): Equanimity Importance values for each experiment.
-        eq_sub_values (list or np.array): Equanimity Subsets values for each experiment.
+        eq_imp_values (list or np.array): Equanimity Importance values.
+        eq_sub_values (list or np.array): Equanimity Subsets values.
         eq_sub_norm_values (list or np.array): Equanimity Subsets Normalized values.
         entanglement_values (list or np.array): Entanglement values.
         save_path (str, optional): File path to save the plot image.
-        
-    The function creates a line plot with frequency on the x-axis and each metric on the y-axis.
     """
     plt.figure(figsize=(10, 6))
     plt.plot(frequencies, eq_imp_values, marker='o', label='Equanimity Importance')
@@ -33,15 +30,13 @@ def plot_metrics_vs_frequency(frequencies, eq_imp_values, eq_sub_values, eq_sub_
 
 def plot_equanimity_vs_entanglement_heatmap(equanimity_values, entanglement_values, bins=20, save_path=None):
     """
-    Plot a heatmap (hexbin) showing the relation between equanimity (importance version) and entanglement.
+    Plot a hexbin heatmap showing the relation between equanimity (importance version) and entanglement.
     
     Parameters:
         equanimity_values (list or np.array): Equanimity Importance values.
         entanglement_values (list or np.array): Entanglement values.
-        bins (int): The number of bins (gridsize) to use in the hexbin plot.
+        bins (int): Number of bins (gridsize) for the hexbin plot.
         save_path (str, optional): File path to save the plot image.
-        
-    The function uses a hexbin plot to display the density of points.
     """
     plt.figure(figsize=(8, 6))
     hb = plt.hexbin(equanimity_values, entanglement_values, gridsize=bins, cmap='Reds', mincnt=1)
