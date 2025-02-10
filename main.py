@@ -4,7 +4,7 @@ from tm.logger import get_timestamped_log_dir
 
 def run_experiments():
     run_directory = get_timestamped_log_dir()
-    print(f"Saving logs to: {run_directory}")
+    # print(f"Saving logs to: {run_directory}")
     
     trans_prob = 0.7
     pairs = generate_tm_input_pairs(10, trans_prob=trans_prob)
