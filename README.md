@@ -1,4 +1,4 @@
-# TFG Mathematics Project: Analyzing 4-State Turing Machines
+# TFG Mathematics Project
 
 ## Overview
 
