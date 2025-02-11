@@ -69,11 +69,14 @@ def project_history_to_boolean_function(config_history):
     Returns:
         int: Representación entera de la función booleana de 32 bits.
     """
+
+    # Obtenemos las configuraciones proyectadas
     observed = set()
     for config in config_history:
         tape_bits = config[:5]
         observed.add(tape_bits)
     
+    # Construimos la tabla de verdad
     truth_table = ""
     for i in range(32):
         pattern = format(i, '05b')
