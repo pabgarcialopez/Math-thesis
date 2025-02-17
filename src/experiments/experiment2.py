@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from src.plotters import plot_frequency_histogram
 from src.experiments.base_experiment import BaseExperiment, project_history_to_boolean_function
+from src.config import LOGS_DIR  # Import the logs directory from config
 
 def load_dataset(filepath):
     """
@@ -81,7 +82,7 @@ def analyze_representation(freq_dict, dataset):
             grouped_freq["unknown"] += count
             missing += count
     if missing:
-        print(f"Warning: {missing} functions from experiments were not found in the dataset.")
+        print(f"[WARNING] {missing} functions from experiments were not found in the dataset.")
     return dict(grouped_freq)
 
 def compute_ratios(grouped_freq, dataset):
@@ -101,21 +102,20 @@ def compute_ratios(grouped_freq, dataset):
         else:
             print(f"Size {size}: {freq} (cannot compute ratio)")
 
-# Define the dataset path
+# Define the dataset path (moved to the top-level data folder)
 DATASET_PATH = os.path.join("data", "dataset_n5_10_puertas.txt")
 
 class Experiment2(BaseExperiment):
     def __init__(self):
+        # We call the BaseExperiment constructor with "experiment2" 
+        # but we won't use its run_dir because we want to analyze experiment1 logs.
         super().__init__("experiment2")
 
     def run_experiment(self):
-        """
-        Analyzes experiment logs (from the run directory) to assess the representation
-        of projected functions in the dataset. Displays frequency information and plots
-        a histogram.
-        """
-        self.log_message(f"Analyzing logs from: {self.run_dir}")
-        freq_dict = collect_projected_functions(self.run_dir, config_choice="final")
+        # Instead of using self.run_dir, we point to the experiment1 logs.
+        logs_path = os.path.join(LOGS_DIR, "experiment1")
+        self.log_message(f"Analyzing logs from: {logs_path}")
+        freq_dict = collect_projected_functions(logs_path, config_choice="final")
         total_experiments = sum(freq_dict.values())
         distinct_functions = len(freq_dict)
         self.log_message(f"Obtained {distinct_functions} distinct projected functions from {total_experiments} experiments.")
@@ -126,7 +126,7 @@ class Experiment2(BaseExperiment):
         grouped_freq = analyze_representation(freq_dict, dataset)
         for size, freq in sorted(grouped_freq.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
             self.log_message(f"Circuit size {size}: {freq} occurrences.")
-        
+
         compute_ratios(grouped_freq, dataset)
         plot_frequency_histogram(grouped_freq)
         self.log_message("Experiment 2 analysis completed.")
