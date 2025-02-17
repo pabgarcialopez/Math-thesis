@@ -1,4 +1,4 @@
 .DS_Store
 __pycache__
 venv/
-src/analysis/dataset_n5_10_puertas.txt
+dataset_n5_10_puertas.txt
