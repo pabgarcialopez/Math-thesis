@@ -70,65 +70,113 @@ def collect_projected_functions(log_directory, config_choice="final"):
 def analyze_representation(freq_dict, dataset):
     """
     Groups the frequency dictionary by circuit size using the dataset.
-    Returns a dictionary where keys are circuit sizes and values are total frequency.
+    Returns a dictionary where keys are circuit sizes and values are the count
+    of distinct functions observed for that size.
     """
-    grouped_freq = defaultdict(int)
-    missing = 0
-    for func, count in freq_dict.items():
+    unique_by_size = defaultdict(int)
+    for func in freq_dict.keys():
         if func in dataset:
             size = dataset[func]
-            grouped_freq[size] += count
+            unique_by_size[size] += 1
         else:
-            grouped_freq["unknown"] += count
-            missing += count
-    if missing:
-        print(f"[WARNING] {missing} functions from experiments were not found in the dataset.")
-    return dict(grouped_freq)
+            unique_by_size["unknown"] += 1
 
-def compute_ratios(grouped_freq, dataset):
-    """
-    Calculates and prints the ratio (experiment appearances / number of functions in dataset)
-    for each circuit size.
-    """
-    dataset_counts = defaultdict(int)
-    for func, size in dataset.items():
-        dataset_counts[size] += 1
-
-    print("\nRatio (experiment appearances / number of functions in dataset):")
-    for size, freq in sorted(grouped_freq.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
-        if isinstance(size, int) and size in dataset_counts and dataset_counts[size] > 0:
-            ratio = freq / dataset_counts[size]
-            print(f"Size {size}: {freq} / {dataset_counts[size]} = {ratio*100:.8f}%")
-        else:
-            print(f"Size {size}: {freq} (cannot compute ratio)")
+    if "unknown" in unique_by_size:
+        print(f"[WARNING] {unique_by_size['unknown']} functions from experiments were not found in the dataset.")
+    return dict(unique_by_size)
 
 # Define the dataset path (moved to the top-level data folder)
 DATASET_PATH = os.path.join("data", "dataset_n5_10_puertas.txt")
 
 class Experiment2(BaseExperiment):
     def __init__(self):
-        # We call the BaseExperiment constructor with "experiment2" 
-        # but we won't use its run_dir because we want to analyze experiment1 logs.
+        # BaseExperiment creates a run folder at logs/experiment2/<timestamp>
         super().__init__("experiment2")
 
     def run_experiment(self):
-        # Instead of using self.run_dir, we point to the experiment1 logs.
+        # Instead of using our own run_dir for logs to analyze,
+        # we point to the experiment1 logs.
         logs_path = os.path.join(LOGS_DIR, "experiment1")
         self.log_message(f"Analyzing logs from: {logs_path}")
+        
+        # Collect projected functions from experiment1 logs.
         freq_dict = collect_projected_functions(logs_path, config_choice="final")
         total_experiments = sum(freq_dict.values())
         distinct_functions = len(freq_dict)
         self.log_message(f"Obtained {distinct_functions} distinct projected functions from {total_experiments} experiments.")
-
+        
         dataset = load_dataset(DATASET_PATH)
         self.log_message(f"Loaded dataset with {len(dataset)} functions.")
-
+        
+        # Get grouped frequency by circuit size (using distinct counts)
         grouped_freq = analyze_representation(freq_dict, dataset)
-        for size, freq in sorted(grouped_freq.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
-            self.log_message(f"Circuit size {size}: {freq} occurrences.")
-
-        compute_ratios(grouped_freq, dataset)
-        plot_frequency_histogram(grouped_freq)
+        for size, count in sorted(grouped_freq.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
+            self.log_message(f"Circuit size {size}: {count} distinct occurrences.")
+        
+        # Compute unique ratios:
+        # First, form a mapping from circuit size to the set of unique functions encountered.
+        unique_by_size_set = defaultdict(set)
+        for func in freq_dict.keys():
+            if func in dataset:
+                size = dataset[func]
+                unique_by_size_set[size].add(func)
+            else:
+                unique_by_size_set["unknown"].add(func)
+        
+        # Compute dataset counts by circuit size.
+        dataset_counts = defaultdict(int)
+        for func, size in dataset.items():
+            dataset_counts[size] += 1
+        
+        # Prepare a ratios dictionary and log details.
+        unique_ratios = {}
+        ratio_details = {}
+        for size, func_set in unique_by_size_set.items():
+            count_unique = len(func_set)
+            dataset_count = dataset_counts.get(size, 0)
+            if isinstance(size, int) and dataset_count > 0:
+                ratio = count_unique / dataset_count
+                unique_ratios[size] = ratio
+                ratio_details[size] = {
+                    "unique_count": count_unique,
+                    "dataset_count": dataset_count,
+                    "ratio": ratio
+                }
+            else:
+                unique_ratios[size] = None
+                ratio_details[size] = {
+                    "unique_count": count_unique,
+                    "dataset_count": dataset_count,
+                    "ratio": None
+                }
+        
+        self.log_message("\nUnique Ratios (unique functions in logs / number of functions in dataset):")
+        for size, details in sorted(ratio_details.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
+            if details["ratio"] is not None:
+                self.log_message(f"Size {size}: {details['unique_count']} / {details['dataset_count']} = {details['ratio']*100:.8f}%")
+            else:
+                self.log_message(f"Size {size}: {details['unique_count']} (cannot compute ratio)")
+        
+        # Prepare a summary dictionary to save.
+        summary_data = {
+            "total_experiments": total_experiments,
+            "distinct_projected_functions": distinct_functions,
+            "dataset_size": len(dataset),
+            "grouped_frequency": dict(grouped_freq),
+            "unique_by_size": {size: len(func_set) for size, func_set in unique_by_size_set.items()},
+            "dataset_counts": dict(dataset_counts),
+            "unique_ratios": {size: (details["ratio"] if details["ratio"] is not None else "N/A") for size, details in ratio_details.items()}
+        }
+        
+        # Save the summary log as a JSON file in our run directory.
+        from src.utils.logger import save_execution_log
+        save_execution_log(summary_data, filename="experiment2_summary.json", directory=self.run_dir)
+        self.log_message("Summary data saved as experiment2_summary.json")
+        
+        # Save the final histogram image into our run folder.
+        histogram_path = os.path.join(self.run_dir, "final_histogram.png")
+        plot_frequency_histogram(grouped_freq, save_path=histogram_path)
+        self.log_message(f"Final histogram saved to: {histogram_path}")
         self.log_message("Experiment 2 analysis completed.")
 
 def run_experiment():

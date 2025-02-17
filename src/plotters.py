@@ -1,3 +1,4 @@
+# src/plotters.py
 import matplotlib.pyplot as plt
 
 def plot_metrics_vs_frequency(frequencies, eq_imp_values, eq_sub_values, eq_sub_norm_values, entanglement_values, save_path=None):
@@ -49,11 +50,7 @@ def plot_equanimity_vs_entanglement_heatmap(equanimity_values, entanglement_valu
         plt.savefig(save_path, bbox_inches='tight')
     plt.show()
 
-
-# plotters.py
-import matplotlib.pyplot as plt
-
-def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por tamaño mínimo"):
+def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por tamaño mínimo", save_path=None):
     """
     Genera y muestra un histograma (barras) que representa la frecuencia total
     de funciones observadas agrupadas por el tamaño mínimo del circuito.
@@ -61,6 +58,7 @@ def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por ta
     Args:
         grouped_freq (dict): Diccionario { circuit_size: frequency }.
         title (str): Título del gráfico.
+        save_path (str, optional): Ruta del archivo para guardar la imagen.
     """
     # Ordenar las claves (pueden ser números o incluir 'desconocido')
     keys_numeric = [k for k in grouped_freq.keys() if isinstance(k, int)]
@@ -79,4 +77,7 @@ def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por ta
     plt.ylabel("Frecuencia observada")
     plt.title(title)
     plt.grid(axis='y', alpha=0.75)
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
     plt.show()

@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import src.config as config
+from tqdm import tqdm
 from src.plotters import plot_metrics_vs_frequency, plot_equanimity_vs_entanglement_heatmap
 from src.utils.logger import save_execution_log
 from src.tm.generators import generate_tm_input_pairs
@@ -82,7 +83,7 @@ class Experiment1(BaseExperiment):
         heatmap_eq_imp, heatmap_ent = [], []
 
         # Loop over each transition probability.
-        for p_idx, prob in enumerate(trans_probs):
+        for p_idx, prob in enumerate(tqdm(trans_probs, desc="Experiment 1", colour="green")):
             eq_imp_list, eq_sub_list, eq_sub_norm_list, ent_list = [], [], [], []
             machines = generate_tm_input_pairs(config.NUM_EXPERIMENTS, trans_prob=prob)
 
