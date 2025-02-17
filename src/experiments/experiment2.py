@@ -1,4 +1,12 @@
 # src/experiments/experiment2.py
+
+# This experiment tries to see how well the projected 5 bit to 1 boolean functions 
+# are represented in the dataset of boolean functions from 5 bits to 1 computed with circuits
+# from 1 to 10 gates. The apparent conclusion is that most projected functions are computed with
+# a circuit with a higher number of gates, maybe showing that the projection does not work well,
+# since with experiment 1 we have seen that the 10 bit to 1 functions seem "simple" because they
+# have low values of equanimity and entanglement.
+
 import os
 import glob
 import json
