@@ -124,32 +124,32 @@ class TuringMachine:
         state_bits = format(self.current_state, '02b')
         return tape_bits + head_bits + state_bits
     
-    def get_projected_configuration(self, config_choice="final"):
-        """
-        Retorna la proyección de la configuración (los 5 bits de la cinta)
-        a partir de la configuración elegida.
+    # def get_projected_configuration(self, config_choice="final"):
+    #     """
+    #     Retorna la proyección de la configuración (los 5 bits de la cinta)
+    #     a partir de la configuración elegida.
         
-        Parámetros:
-          config_choice: 'initial', 'middle' o 'final'
-            - 'initial': toma la primera configuración registrada.
-            - 'middle': toma la configuración del medio de la historia.
-            - 'final' (por defecto): toma la última configuración.
+    #     Parámetros:
+    #       config_choice: 'initial', 'middle' o 'final'
+    #         - 'initial': toma la primera configuración registrada.
+    #         - 'middle': toma la configuración del medio de la historia.
+    #         - 'final' (por defecto): toma la última configuración.
         
-        Si no hay historia registrada, retorna la proyección de la configuración
-        actual.
-        """
-        # Asegurarse de tener un historial; si no, usar la configuración actual.
-        if not self.config_history:
-            config = self.get_configuration()
-        else:
-            if config_choice == "initial":
-                config = self.config_history[0]
-            elif config_choice == "middle":
-                config = self.config_history[len(self.config_history) // 2]
-            else:  # "final" por defecto
-                config = self.config_history[-1]
-        # Retornamos los 5 primeros bits (la parte de la cinta)
-        return config[:5]
+    #     Si no hay historia registrada, retorna la proyección de la configuración
+    #     actual.
+    #     """
+    #     # Asegurarse de tener un historial; si no, usar la configuración actual.
+    #     if not self.config_history:
+    #         config = self.get_configuration()
+    #     else:
+    #         if config_choice == "initial":
+    #             config = self.config_history[0]
+    #         elif config_choice == "middle":
+    #             config = self.config_history[len(self.config_history) // 2]
+    #         else:  # "final" por defecto
+    #             config = self.config_history[-1]
+    #     # Retornamos los 5 primeros bits (la parte de la cinta)
+    #     return config[:5]
     
     def step(self):
         """
@@ -198,6 +198,21 @@ class TuringMachine:
         domain_size = 2 ** N  # 1024
         history_set = set(self.config_history)
         return [1 if format(i, '010b') in history_set else 0 for i in range(domain_size)]
+    
+    def get_projected_history_function(self): 
+        """
+        Returns a vector (list) of 32 entries (since projected configurations are 5 bits)
+        representing the projected history function of the Turing Machine.
+        The vector is indexed by the lexicographic order of 5-bit strings.
+        For each configuration (as a 5-bit string) in this fixed order,
+        the vector has a 1 if that 5 bit configuration was encountered during execution,
+        or 0 otherwise.
+        """
+        N = 5
+        domain_size = 2 ** 5  # 32
+        projected_config_history = list(map(lambda config: config[:5], self.config_history))
+        projected_history_set = set(projected_config_history)
+        return [1 if format(i, '010b') in projected_history_set else 0 for i in range(domain_size)]
     
     def print_tape(self, label="Tape:"):
         """
