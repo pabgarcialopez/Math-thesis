@@ -11,3 +11,7 @@ GENERATE_PLOTS = True     # Set to False if you do not want to generate plots
 
 # Logging options
 LOGS_DIR = "logs"
+
+EXPERIMENT4_MODE = "random"  # "tm" o "random"
+EXPERIMENT4_N_BITS = 10
+EXPERIMENT4_NUM_FUNCTIONS = 2000
