@@ -4,9 +4,7 @@ import json
 import datetime
 from src.config import LOGS_DIR  # Import the parameter from config.py
 
-DEFAULT_LOG_DIR = LOGS_DIR  # Use the config parameter as the default
-
-def get_timestamped_log_dir(base_directory=DEFAULT_LOG_DIR):
+def get_timestamped_log_dir(base_directory=LOGS_DIR):
     """
     Create and return a new directory name based on the current timestamp
     inside the base directory.
@@ -17,7 +15,7 @@ def get_timestamped_log_dir(base_directory=DEFAULT_LOG_DIR):
         os.makedirs(log_dir)
     return log_dir
 
-def save_execution_log(log_data, filename="execution_log.json", directory=DEFAULT_LOG_DIR):
+def save_execution_log(log_data, filename="execution_log.json", directory=LOGS_DIR):
     """
     Save a dictionary of execution data to a JSON file in the specified directory.
     A timestamp is added automatically.
@@ -30,7 +28,7 @@ def save_execution_log(log_data, filename="execution_log.json", directory=DEFAUL
     with open(filepath, "w") as f:
         json.dump(log_data, f, indent=4)
 
-def load_execution_log(filename="execution_log.json", directory=DEFAULT_LOG_DIR):
+def load_execution_log(filename="execution_log.json", directory=LOGS_DIR):
     """
     Load execution data from a JSON file in the specified directory.
     """

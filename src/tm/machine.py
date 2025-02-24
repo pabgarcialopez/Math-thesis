@@ -1,84 +1,109 @@
 # tm/machine.py
 
+import math
 from src.tm.validators import validate_params, validate_transition_params, validate_binary_input
 
 class TuringMachine:
-    def __init__(self, num_states=4, input_symbols={'0', '1'}, blank_symbol='_',
-                 transition_function=None, initial_head_position=1, accepting_states=None, 
-                 binary_input=None, trans_prob=0.5, debug=False):
+    def __init__(
+        self,
+        tape_length=5,
+        num_states=4,
+        input_symbols={'0', '1'},
+        blank_symbol='_',
+        initial_head_position=1,
+        transition_function=None,
+        accepting_states=None,
+        binary_input=None,
+        trans_prob=0.5,
+        debug=False
+    ):
         """
-        Initialize the Turing Machine.
-        The tape is composed of 7 cells:
-          - Index 0: left wall (fixed)
-          - Indexes 1-5: variable tape content (5 bits)
-          - Index 6: right wall (fixed)
-        The head (cursor) can be in any of the 7 positions (0 to 6), using 3 bits.
-        The current state is represented with 2 bits (supporting up to 4 states).
-
-        If binary_input is provided, it must be exactly 5 bits (e.g., '10101')
-        and will be loaded into the variable region of the tape (cells 1 to 5).
-        Otherwise, the variable region is initialized with the blank symbol.
-
-        If accepting_states is not provided, they are generated randomly.
-        If transition_function is not provided, it is generated randomly with probability `trans_prob`.
+        Inicializa la Máquina de Turing.
+        
+        - La cinta tiene `tape_length + 2` celdas:
+          índice 0: pared izquierda
+          índices 1..tape_length: celdas variables
+          índice tape_length+1: pared derecha
+        
+        - El cabezal (head) puede estar en [0..tape_length+1], aunque por defecto lo
+          restringimos a la región variable [1..tape_length].
+        
+        - El número de estados es `num_states`. El estado inicial es 0.
+        
+        - Si se pasa `binary_input`, debe ser de longitud `tape_length` (bits).
+          Si no se pasa, la parte variable se llena con el símbolo en blanco.
+        
+        - Si no se pasan `accepting_states` ni `transition_function`, se generan aleatoriamente
+          con la probabilidad `trans_prob`.
+        
+        - Se registran todas las configuraciones (cinta+head+estado) en `config_history`.
         """
         if blank_symbol in input_symbols:
             raise ValueError("Blank symbol cannot be an input symbol.")
         
         self.num_states = num_states
+        self.tape_length = tape_length
         self.input_symbols = input_symbols
         self.blank_symbol = blank_symbol
-
-        # Validate binary_input
-        validate_binary_input(binary_input, bits=5)
+        self.binary_input = binary_input
+        
+        # Validar la entrada binaria si existe
+        validate_binary_input(binary_input, tape_length)
         
         if binary_input is not None:
-            self.binary_input = binary_input
             variable_cells = list(binary_input)
         else:
-            self.binary_input = None
-            variable_cells = [blank_symbol] * 5
-
-        # Initialize tape with boundaries (walls) and 5 variable cells.
+            variable_cells = [blank_symbol] * tape_length
+        
+        # Construir la cinta: pared izquierda + celdas variables + pared derecha
         self.tape = ['|'] + variable_cells + ['|']
         
-        if initial_head_position < 0 or initial_head_position > 6:
-            raise ValueError("Initial head position must be between 0 and 6.")
-        self.initial_head_position = initial_head_position
         self.head_position = initial_head_position
         
-        self.current_state = 0  # Start in state 0
+        self.current_state = 0  # Estado inicial
         
-        # Generate accepting states if not provided.
+        # Generar estados aceptantes si no se pasaron
         if accepting_states is None:
             from src.tm.generators import generate_random_accepting_states
             accepting_states = generate_random_accepting_states(num_states=self.num_states)
         self.accepting_states = accepting_states
         
-        # Generate transition function if not provided.
+        # Generar función de transición si no se pasó
         if transition_function is None:
             from src.tm.generators import generate_random_transitions
             transition_function = generate_random_transitions(self, trans_prob=trans_prob)
         self.transition_function = transition_function
         
-        # List to record the history of configurations (each as a 10-bit string).
+        # Historial de configuraciones
         self.config_history = []
         
-        # Debug flag.
+        # Bits necesarios para representar la configuración
+        # - tape_length bits para la parte variable de la cinta
+        # - head_bits para la posición del cabezal
+        # - state_bits para el estado actual
+        self.head_position_bits = math.ceil(math.log2(tape_length + 2)) if (tape_length + 2) > 1 else 1
+        self.state_bits = math.ceil(math.log2(num_states)) if num_states > 1 else 1
+        self.total_config_bits = tape_length + self.head_position_bits + self.state_bits
+        
+        # Debug
         self.debug = debug
 
     def log(self, message):
-        """Helper method to print debug messages if debugging is enabled."""
+        """Muestra un mensaje si el modo debug está activo."""
         if self.debug:
             print(message)
     
     @validate_params(validate_transition_params)
     def add_transition(self, state, symbol, next_state, write_symbol, direction):
-        """Add a transition to the TM's transition function."""
+        """
+        Añade una transición a la función de transición de la TM.
+        """
         self.transition_function[(state, symbol)] = (next_state, write_symbol, direction)
     
     def print_transitions(self):
-        """Print the complete transition function in a readable format."""
+        """
+        Imprime la función de transición en un formato legible.
+        """
         print("\nTransition Function:")
         if not self.transition_function:
             print("  No transitions defined.")
@@ -87,79 +112,54 @@ class TuringMachine:
                 print(f"  (state {state}, symbol '{symbol}') -> (state {next_state}, write '{write_symbol}', move {direction})")
     
     def read_current_symbol(self):
-        """Read the symbol currently under the head."""
+        """Lee el símbolo bajo el cabezal."""
         return self.tape[self.head_position]
     
     def get_transition(self, current_symbol):
-        """Return the transition for (current_state, current_symbol), if any."""
+        """Devuelve la transición para (current_state, current_symbol), si existe."""
         return self.transition_function.get((self.current_state, current_symbol))
     
     def write_symbol(self, write_symbol):
-        """Write a symbol to the current head position on the tape."""
+        """Escribe un símbolo en la posición actual del cabezal."""
         self.tape[self.head_position] = write_symbol
     
     def move_head(self, direction):
         """
-        Move the head left or right, ensuring it does not leave the 7-cell tape.
-        Note: The head is constrained to the variable region (cells 1 to 5).
+        Mueve el cabezal a la izquierda o a la derecha,
+        sin salir de la región [1..tape_length].
         """
-        if direction == 'R' and self.head_position < 5:
+        if direction == 'R' and self.head_position < self.tape_length:
             self.head_position += 1
         elif direction == 'L' and self.head_position > 1:
             self.head_position -= 1
     
     def is_accepting(self):
-        """Return True if the current state is an accepting state."""
+        """Devuelve True si el estado actual está en los estados aceptantes."""
         return self.current_state in self.accepting_states
     
     def get_configuration(self):
         """
-        Return the current configuration as a 10-bit string composed of:
-          - 5 bits for the tape content (cells 1 to 5)
-          - 3 bits for the head position (0 to 6, in 3-bit binary)
-          - 2 bits for the current state (assuming up to 4 states)
+        Devuelve la configuración actual como cadena binaria de longitud total_config_bits:
+          - tape_length bits para la parte variable de la cinta
+          - head_position_bits bits para la posición del cabezal
+          - state_bits bits para el estado
         """
-        tape_bits = ''.join(self.tape[1:6])
-        head_bits = format(self.head_position, '03b')
-        state_bits = format(self.current_state, '02b')
+        # Parte de la cinta (ignorando paredes)
+        tape_bits = ''.join(self.tape[1:1 + self.tape_length])
+        # Cabezal en binario
+        head_bits = format(self.head_position, f'0{self.head_position_bits}b')
+        # Estado en binario
+        state_bits = format(self.current_state, f'0{self.state_bits}b')
         return tape_bits + head_bits + state_bits
-    
-    # def get_projected_configuration(self, config_choice="final"):
-    #     """
-    #     Retorna la proyección de la configuración (los 5 bits de la cinta)
-    #     a partir de la configuración elegida.
-        
-    #     Parámetros:
-    #       config_choice: 'initial', 'middle' o 'final'
-    #         - 'initial': toma la primera configuración registrada.
-    #         - 'middle': toma la configuración del medio de la historia.
-    #         - 'final' (por defecto): toma la última configuración.
-        
-    #     Si no hay historia registrada, retorna la proyección de la configuración
-    #     actual.
-    #     """
-    #     # Asegurarse de tener un historial; si no, usar la configuración actual.
-    #     if not self.config_history:
-    #         config = self.get_configuration()
-    #     else:
-    #         if config_choice == "initial":
-    #             config = self.config_history[0]
-    #         elif config_choice == "middle":
-    #             config = self.config_history[len(self.config_history) // 2]
-    #         else:  # "final" por defecto
-    #             config = self.config_history[-1]
-    #     # Retornamos los 5 primeros bits (la parte de la cinta)
-    #     return config[:5]
     
     def step(self):
         """
-        Execute a single step (transition) of the Turing Machine.
-        If no transition is defined for the current (state, symbol) pair,
-        the machine halts and returns "accepted" or "rejected".
+        Ejecuta un paso (transición) de la MT.
+        Si no hay transición definida, la máquina se detiene (accepted o rejected).
         """
         current_symbol = self.read_current_symbol()
         transition = self.get_transition(current_symbol)
-
+        
         if not transition:
             return "accepted" if self.is_accepting() else "rejected"
         
@@ -170,12 +170,13 @@ class TuringMachine:
     
     def run(self, max_steps=1000):
         """
-        Run the Turing Machine with a limit on the number of steps.
-        Records each configuration (as a 10-bit string) in self.config_history.
-        Returns "accepted", "rejected", or "inconclusive" if max_steps is reached.
+        Ejecuta la MT con un límite de pasos.
+        Guarda cada configuración (cadena binaria) en self.config_history.
+        Devuelve "accepted", "rejected" o "inconclusive" (si se alcanzan max_steps).
         """
         self.config_history = []
         self.config_history.append(self.get_configuration())
+        
         step_count = 0
         while step_count < max_steps:
             result = self.step()
@@ -183,43 +184,39 @@ class TuringMachine:
             if result is not None:
                 return result
             step_count += 1
+        
         return "accepted" if self.is_accepting() else "rejected"
     
     def get_history_function(self):
         """
-        Returns a vector (list) of 1024 entries (since configurations are 10 bits)
-        representing the history function of the Turing Machine.
-        The vector is indexed by the lexicographic order of 10-bit strings.
-        For each configuration (as a 10-bit string) in this fixed order,
-        the vector has a 1 if that configuration was encountered during execution,
-        or 0 otherwise.
+        Devuelve una lista de tamaño 2^(total_config_bits).
+        Se marca con 1 los índices (en decimal) de las configuraciones visitadas.
         """
-        N = 10
-        domain_size = 2 ** N  # 1024
+        domain_size = 2 ** self.total_config_bits
         history_set = set(self.config_history)
-        return [1 if format(i, '010b') in history_set else 0 for i in range(domain_size)]
+        vec = [0] * domain_size
+        for cfg in history_set:
+            idx = int(cfg, 2)
+            vec[idx] = 1
+        return vec
     
-    def get_projected_history_function(self): 
+    def get_projected_history_function(self):
         """
-        Returns a vector (list) of 32 entries (since projected configurations are 5 bits)
-        representing the projected history function of the Turing Machine.
-        The vector is indexed by the lexicographic order of 5-bit strings.
-        For each configuration (as a 5-bit string) in this fixed order,
-        the vector has a 1 if that 5 bit configuration was encountered during execution,
-        or 0 otherwise.
+        Devuelve una lista de tamaño 2^(tape_length),
+        marcando las configuraciones visitadas en la parte de la cinta (primeros tape_length bits).
         """
-        N = 5
-        domain_size = 2 ** 5  # 32
-        projected_config_history = list(map(lambda config: config[:5], self.config_history))
-        projected_history_set = set(projected_config_history)
-        return [1 if format(i, '010b') in projected_history_set else 0 for i in range(domain_size)]
+        domain_size = 2 ** self.tape_length
+        projected_history_set = set(cfg[:self.tape_length] for cfg in self.config_history)
+        vec = [0] * domain_size
+        for i in range(domain_size):
+            pattern = format(i, f'0{self.tape_length}b')
+            if pattern in projected_history_set:
+                vec[i] = 1
+        return vec
     
     def print_tape(self, label="Tape:"):
         """
-        Print the full tape (with boundaries) and indicate the head position.
-        The tape is printed as: <label> <tape_contents>
-        The caret '^' is printed on the next line, aligned so that it appears
-        directly under the tape cell where the head is located.
+        Imprime la cinta y una marca '^' bajo la posición del cabezal.
         """
         tape_visual = ''.join(self.tape)
         line = f"{label} {tape_visual}"
@@ -228,7 +225,7 @@ class TuringMachine:
         print(" " * offset + "^")
     
     def print_history(self):
-        """Print the recorded history of configurations (each as a 10-bit string)."""
-        print("Configuration History (5 bits tape + 3 bits head + 2 bits state):")
+        """Imprime el historial de configuraciones (cada una en binario)."""
+        print("Configuration History:")
         for config in self.config_history:
             print(config)

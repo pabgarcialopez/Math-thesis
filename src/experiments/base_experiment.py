@@ -1,6 +1,6 @@
 # src/experiments/base_experiment.py
 import os
-from src.config import LOGS_DIR  # Import the logs directory from config
+from src.config import LOGS_DIR
 from src.utils.logger import get_timestamped_log_dir
 
 class BaseExperiment:
@@ -10,8 +10,8 @@ class BaseExperiment:
 
     def get_experiment_run_dir(self):
         """
-        Creates and returns a timestamped run directory for the experiment.
-        Directory structure: <LOGS_DIR>/<experiment_name>/<timestamp>/
+        Crea y devuelve un directorio con timestamp para la ejecución del experimento.
+        Estructura: <LOGS_DIR>/<experiment_name>/<timestamp>/
         """
         base_dir = os.path.join(LOGS_DIR, self.experiment_name)
         if not os.path.exists(base_dir):
@@ -24,19 +24,18 @@ class BaseExperiment:
 
     def run_experiment(self):
         """
-        Abstract method. Subclasses must implement this method.
+        Método abstracto. Las subclases deben implementar run_experiment().
         """
         raise NotImplementedError("Subclasses must implement run_experiment()")
 
 def project_history_to_boolean_function(config_history):
     """
-    Given a list of 10-bit configuration strings, projects to the 5-bit tape portion and 
-    creates a truth table (32 bits) where each bit is 1 if the corresponding 5-bit pattern 
-    was observed, else 0. Returns the integer value of the truth table.
+    Dada una lista de configuraciones en binario (por ejemplo, total_config_bits),
+    proyecta a los primeros 5 (por defecto) bits.
     """
     observed = set()
     for config in config_history:
-        tape_bits = config[:5]
+        tape_bits = config[:5]  # 5 bits fijos. Cambiarlo segun convenga
         observed.add(tape_bits)
     
     truth_table = ""
