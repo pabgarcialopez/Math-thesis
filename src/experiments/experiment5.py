@@ -22,6 +22,8 @@ class Experiment5(BaseExperiment):
     Se inspira en experiment4, pero aplica:
       - 12 bits => tape_length=7, num_states=2  -> 7 + 4 + 1 = 12
       - 15 bits => tape_length=9, num_states=4  -> 9 + 4 + 2 = 15
+      - 18 bits => tape_length=12, num_states=4  -> 12 + 4 + 2 = 18
+        OJO: 20 bits tarda una barbaridad
       - 20 bits => tape_length=14, num_states=4 -> 14 + 4 + 2 = 20
 
     Con modo 'tm' (se generan Turing Machines y se mide la complejidad de su FND mínima)
@@ -34,11 +36,13 @@ class Experiment5(BaseExperiment):
         # que resultan en 12, 15 y 20 bits, respectivamente.
         self.configs = [
             # 12 bits
-            {"tape_length": 7,  "num_states": 2,  "total_bits": 12},
-            # 15 bits
-            {"tape_length": 9,  "num_states": 4,  "total_bits": 15},
+            # {"tape_length": 7,  "num_states": 2,  "total_bits": 12},
+            # # 15 bits
+            # {"tape_length": 9,  "num_states": 4,  "total_bits": 15},
+            # 18 bits
+            {"tape_length": 12,  "num_states": 4,  "total_bits": 18},
             # 20 bits
-            {"tape_length": 14, "num_states": 4,  "total_bits": 20},
+            # {"tape_length": 14, "num_states": 4,  "total_bits": 20},
         ]
 
     # -------------------------
