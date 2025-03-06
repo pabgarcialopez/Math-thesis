@@ -17,8 +17,13 @@ from src.tm.generators import generate_tm_input_pairs
 from src.tm.machine import TuringMachine
 
 class Experiment4(BaseExperiment):
-    def __init__(self):
+    def __init__(self, mode, tape_length=5, num_states=4, total_bits=10, num_random_functions=2000):
         super().__init__("experiment4")
+        self.mode = mode
+        self.tape_length = tape_length
+        self.num_states = num_states
+        self.total_bits = total_bits
+        self.num_random_functions = num_random_functions
     
     def measure_dnf_complexity(self, expr_obj):
         """
@@ -107,7 +112,7 @@ class Experiment4(BaseExperiment):
             plt.savefig(save_path, bbox_inches='tight')
         plt.show()
 
-    def run_tm_mode(self, tape_length=5, num_states=4):
+    def run_tm_mode(self):
         trans_probs = np.linspace(config.MIN_PROB, config.MAX_PROB, config.NUM_PROBS)
         
         # Estas listas guardarán un promedio por cada probabilidad
@@ -126,8 +131,9 @@ class Experiment4(BaseExperiment):
             machines = generate_tm_input_pairs(
                 config.NUM_EXPERIMENTS,
                 trans_prob=prob,
-                tape_length=tape_length,
-                num_states=num_states
+                tape_length=self.tape_length,
+                num_states=self.num_states,
+                total_bits=self.total_bits
             )
             
             # Recorremos las máquinas generadas con la probabilidad 'prob'
@@ -135,8 +141,7 @@ class Experiment4(BaseExperiment):
                 tm.run()
                 history_vals = tm.get_history_function()
                 
-                n_bits = tm.total_config_bits
-                xs = exprvars('x', n_bits)
+                xs = exprvars('x', self.total_bits)
                 bool_tuple = tuple(bool(x) for x in history_vals)
                 tt = truthtable(xs, bool_tuple)
                 min_tt, = espresso_tts(tt)
@@ -180,7 +185,7 @@ class Experiment4(BaseExperiment):
             avg_terms.append(sum(terms_list) / len(terms_list))
             avg_literals.append(sum(literals_list) / len(literals_list))
         
-        # Ahora 'avg_terms' y 'avg_literals' tienen tantos elementos como 'trans_probs'
+        # 'avg_terms' y 'avg_literals' tienen tantos elementos como 'trans_probs'
         plot_path = os.path.join(self.run_dir, "complexity_vs_transition_probability.png")
         self.plot_complexity_vs_probability(trans_probs, avg_terms, avg_literals, save_path=plot_path)
         self.log_message(f"Modo TM completado. Gráfico guardado en: {plot_path}")
@@ -190,7 +195,7 @@ class Experiment4(BaseExperiment):
         self.plot_random_complexity_histogram(
             global_terms,
             global_literals,
-            n_bits=tape_length + math.ceil(math.log2(num_states)) + math.ceil(math.log2(tape_length + 2)),
+            n_bits=self.tape_length + math.ceil(math.log2(self.num_states)) + math.ceil(math.log2(self.tape_length + 2)),
             title="Máquinas de Turing",
             save_path=hist_path
         )
@@ -199,12 +204,12 @@ class Experiment4(BaseExperiment):
         # Guardar frecuencias globales
         self.save_frequency_percentages(global_terms, global_literals, mode_label="tm")
 
-    def run_random_mode(self, n_bits, num_functions):
+    def run_random_mode(self):
         global_terms, global_literals = [], []
-        for i in tqdm(range(num_functions), desc="Random mode", colour="blue"):
-            table_size = 2 ** n_bits
+        for i in tqdm(range(self.num_random_functions), desc="Random mode", colour="blue"):
+            table_size = 2 ** self.total_bits
             values = [random.choice([False, True]) for _ in range(table_size)]
-            xs = exprvars('x', n_bits)
+            xs = exprvars('x', self.total_bits)
             tt = truthtable(xs, tuple(values))
             min_tt, = espresso_tts(tt)
             if min_tt is not None:
@@ -217,7 +222,7 @@ class Experiment4(BaseExperiment):
 
             log_data = {
                 "mode": "random",
-                "n_bits": n_bits,
+                "n_bits": self.total_bits,
                 "truth_table": values,
                 "minimized_expression": str(min_tt) if min_tt else None,
                 "complexity": {"num_terms": n_terms, "total_literals": n_literals}
@@ -225,8 +230,8 @@ class Experiment4(BaseExperiment):
             filename = f"random_function_{i+1}_dnf.json"
             save_execution_log(log_data, filename=filename, directory=self.run_dir)
 
-        hist_path = os.path.join(self.run_dir, f"random_complexity_histogram_{n_bits}bits.png")
-        self.plot_random_complexity_histogram(global_terms, global_literals, n_bits, title="Funciones aleatorias", save_path=hist_path)
+        hist_path = os.path.join(self.run_dir, f"random_complexity_histogram_{self.total_bits}bits.png")
+        self.plot_random_complexity_histogram(global_terms, global_literals, self.total_bits, title="Funciones aleatorias", save_path=hist_path)
         self.log_message(f"Modo Random completado. Histograma guardado en: {hist_path}")
 
         self.save_frequency_percentages(global_terms, global_literals, mode_label="random")
@@ -237,15 +242,15 @@ class Experiment4(BaseExperiment):
             self.log_message("Ejecutando modo TM.")
             self.run_tm_mode(tape_length=5, num_states=4)
         elif config.EXPERIMENT4_MODE == "random":
-            self.log_message(f"Ejecutando modo Random para {config.EXPERIMENT4_N_BITS} bits.")
-            self.run_random_mode(n_bits=config.EXPERIMENT4_N_BITS, 
-                                num_functions=config.EXPERIMENT4_NUM_FUNCTIONS)
+            self.log_message(f"Ejecutando modo Random para {self.total_bits} bits.")
+            self.run_random_mode(n_bits=self.total_bits, 
+                                num_functions=self.num_random_functions)
         else:
             self.log_message("Modo no reconocido en config.EXPERIMENT4_MODE.")
         self.log_message("Experimento 4 completado.")
 
 def run_experiment():
-    exp = Experiment4()
+    exp = Experiment4(mode="tm", tape_length=5, num_states=4, total_bits=10, num_random_functions=2000)
     exp.run_experiment()
 
 if __name__ == "__main__":

@@ -38,18 +38,21 @@ def generate_random_input(tape_length=5):
     """
     return ''.join(random.choice('01') for _ in range(tape_length))
 
-def generate_tm_input_pairs(n, trans_prob=0.5, tape_length=5, num_states=4):
+def generate_tm_input_pairs(n, trans_prob=0.5, tape_length=5, num_states=4, total_bits=None):
     """
-    Genera n TuringMachine objects, cada uno con una entrada binaria aleatoria de `tape_length` bits.
-    La máquina generará sus estados aceptantes y su función de transición automáticamente.
+    Generates n TuringMachine objects
     """
+    if total_bits is None:
+        raise ValueError("generate_tm_input_pairs requires total_bits.")
+
     machines = []
     for _ in range(n):
-        binary_input = generate_random_input(tape_length)
+        bin_input = generate_random_input(tape_length)
         tm = TuringMachine(
             tape_length=tape_length,
             num_states=num_states,
-            binary_input=binary_input,
+            total_bits=total_bits, 
+            binary_input=bin_input,
             trans_prob=trans_prob
         )
         machines.append(tm)

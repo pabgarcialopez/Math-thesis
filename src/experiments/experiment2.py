@@ -166,7 +166,6 @@ class Experiment2(BaseExperiment):
             "unique_ratios": {size: (details["ratio"] if details["ratio"] is not None else "N/A") for size, details in ratio_details.items()}
         }
         
-        from src.utils.logger import save_execution_log
         save_execution_log(summary_data, filename="experiment2_summary.json", directory=self.run_dir)
         self.log_message("Summary data saved as experiment2_summary.json")
         

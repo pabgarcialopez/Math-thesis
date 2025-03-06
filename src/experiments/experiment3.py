@@ -16,10 +16,11 @@ from src.tm.validators import (equanimity_importance, equanimity_subsets,
 from src.experiments.base_experiment import BaseExperiment
 
 class Experiment3(BaseExperiment):
-    def __init__(self, tape_length=5, num_states=4):
+    def __init__(self, tape_length, num_states, total_bits):
         super().__init__("experiment3")
         self.tape_length = tape_length
         self.num_states = num_states
+        self.total_bits = total_bits
 
     def run_single_experiment(self, tm, trans_prob=None):
         result = tm.run()
@@ -93,7 +94,8 @@ class Experiment3(BaseExperiment):
                 config.NUM_EXPERIMENTS,
                 trans_prob=prob,
                 tape_length=self.tape_length,
-                num_states=self.num_states
+                num_states=self.num_states,
+                total_bits=self.total_bits
             )
 
             for i, tm in enumerate(machines):
@@ -153,7 +155,7 @@ class Experiment3(BaseExperiment):
         self.log_message("Experiment 3 completed.")
 
 def run_experiment():
-    exp = Experiment3(tape_length=5, num_states=4)
+    exp = Experiment3(tape_length=5, num_states=4, total_bits=10)
     exp.run_experiment()
 
 if __name__ == "__main__":

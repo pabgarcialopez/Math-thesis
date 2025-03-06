@@ -1,7 +1,6 @@
 # src/experiments/experiment5.py
 
 import os
-import math
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,11 +9,13 @@ from tqdm import tqdm
 from pyeda.inter import exprvars, truthtable  # type: ignore
 from pyeda.boolalg.minimization import espresso_tts  # type: ignore
 
+import src.config as config
 from src.experiments.base_experiment import BaseExperiment
 from src.tm.machine import TuringMachine
-from src.tm.generators import generate_random_input
+from src.tm.generators import generate_random_input, generate_tm_input_pairs
 from src.utils.logger import save_execution_log
-import src.config as config
+
+
 
 class Experiment5(BaseExperiment):
     """
@@ -23,27 +24,18 @@ class Experiment5(BaseExperiment):
       - 12 bits => tape_length=7, num_states=2  -> 7 + 4 + 1 = 12
       - 15 bits => tape_length=9, num_states=4  -> 9 + 4 + 2 = 15
       - 18 bits => tape_length=12, num_states=4  -> 12 + 4 + 2 = 18
-        OJO: 20 bits tarda una barbaridad
       - 20 bits => tape_length=14, num_states=4 -> 14 + 4 + 2 = 20
 
     Con modo 'tm' (se generan Turing Machines y se mide la complejidad de su FND mínima)
     y modo 'random' (se generan funciones booleanas aleatorias de n bits).
     """
 
-    def __init__(self):
+    def __init__(self, mode, num_random_functions=2000, configs=None):
         super().__init__("experiment5")
-        # Definimos las configuraciones para (tape_length, num_states)
-        # que resultan en 12, 15 y 20 bits, respectivamente.
-        self.configs = [
-            # 12 bits
-            # {"tape_length": 7,  "num_states": 2,  "total_bits": 12},
-            # # 15 bits
-            # {"tape_length": 9,  "num_states": 4,  "total_bits": 15},
-            # 18 bits
-            {"tape_length": 12,  "num_states": 4,  "total_bits": 18},
-            # 20 bits
-            # {"tape_length": 14, "num_states": 4,  "total_bits": 20},
-        ]
+        assert configs is not None, "Se debe proveer al menos una config de bitspara el experimento"
+        self.mode = mode
+        self.configs = configs
+        
 
     # -------------------------
     # Métodos auxiliares
@@ -85,7 +77,7 @@ class Experiment5(BaseExperiment):
             plt.savefig(save_path, bbox_inches='tight')
         plt.show()
 
-    def plot_random_complexity_histogram(self, terms_list, literals_list, n_bits, title, save_path=None):
+    def plot_terms_literals_freqs_histogram(self, terms_list, literals_list, n_bits, title, save_path=None):
         """
         Histograma doble (número de términos y número de literales).
         """
@@ -142,17 +134,37 @@ class Experiment5(BaseExperiment):
                 f.write(f"  total_bits  = {n_bits}\n\n")
             
             f.write("Frecuencia y porcentajes de términos:\n")
+            avg_term_number = 0
+            avg_term_freq = 0
+            max_pair = (0, 0)
             for ut, ct in zip(unique_terms, counts_terms):
+                avg_term_number += ut * ct
+                avg_term_freq += ct
                 perc = ct / total * 100
+                if ct > max_pair[1]:
+                    max_pair = (ut, ct)
                 f.write(f"{ut}: {ct} ({perc:.2f}%)\n")
+            f.write(f"Número medio de términos: {avg_term_number / sum(counts_terms)}\n")
+            f.write(f"Frecuencia media: {avg_term_freq / len(counts_terms) :2f}\n")
+            f.write(f"Máximo alcanzado: {max_pair[0]} términos, con frecuencia {max_pair[1]}\n")
+
             
             f.write("\nFrecuencia y porcentajes de literales:\n")
+            avg_lit_number = 0
+            avg_lit_freq = 0
+            max_pair = (0, 0)
             for ul, cl in zip(unique_literals, counts_literals):
                 perc = cl / total * 100
+                avg_lit_number += ul * cl
+                avg_lit_freq += cl
+                if cl > max_pair[1]:
+                    max_pair = (ul, cl)
                 f.write(f"{ul}: {cl} ({perc:.2f}%)\n")
+            f.write(f"Número medio de literales: {avg_lit_number / sum(counts_literals)}\n")
+            f.write(f"Frecuencia media: {avg_lit_freq / len(counts_literals) :2f}\n")
+            f.write(f"Máximo alcanzado: {max_pair[0]} literales, con frecuencia {max_pair[1]}\n")
 
         self.log_message(f"Porcentajes de frecuencias ({mode_label}) guardados en: {output_file}")
-
 
     # -------------------------
     # Lógica "random"
@@ -192,7 +204,7 @@ class Experiment5(BaseExperiment):
 
         # Histograma final
         hist_path = os.path.join(self.run_dir, f"random_{n_bits}bits_histogram.png")
-        self.plot_random_complexity_histogram(
+        self.plot_terms_literals_freqs_histogram(
             global_terms, 
             global_literals, 
             n_bits, 
@@ -204,15 +216,16 @@ class Experiment5(BaseExperiment):
     # -------------------------
     # Lógica "TM"
     # -------------------------
-    def run_tm_mode_for_config(self, tape_length, num_states, trans_probs, num_exps):
+    def run_tm_mode_for_config(self, tape_length, num_states, trans_probs, n_bits):
         """
         Genera TMs con (tape_length, num_states), recorre trans_probs,
         mide complejidad y produce un gráfico "complejidad vs prob" y un histograma global.
         """
         # Calculamos bits de cursor, bits de estado, total bits:
-        tmp_tm = TuringMachine(tape_length, num_states)
+        tmp_tm = TuringMachine(tape_length=tape_length, num_states=num_states, total_bits=n_bits)
         head_bits = tmp_tm.head_position_bits
         state_bits = tmp_tm.state_bits
+        assert n_bits == tmp_tm.total_config_bits
         n_bits = tmp_tm.total_config_bits
         
         avg_terms = []
@@ -220,18 +233,19 @@ class Experiment5(BaseExperiment):
         global_terms = []
         global_literals = []
 
-        for p_idx, prob in enumerate(tqdm(trans_probs, desc=f"TM {tape_length}x{num_states}", colour="green")):
+        for p_idx, prob in enumerate(tqdm(trans_probs, desc=f"Progress", colour="green")):
             terms_list = []
             literals_list = []
 
-            for i in range(num_exps):
-                bin_input = generate_random_input(tape_length)
-                tm = TuringMachine(
-                    tape_length=tape_length,
-                    num_states=num_states,
-                    binary_input=bin_input,
-                    trans_prob=prob
-                )
+            machines = generate_tm_input_pairs(
+                n=config.NUM_EXPERIMENTS,
+                trans_prob=prob,
+                tape_length=tape_length,
+                num_states=num_states,
+                total_bits=n_bits,
+            )
+
+            for i, tm in enumerate(machines):
                 tm.run()
                 xs = exprvars('x', tm.total_config_bits)
                 bool_tuple = tuple(bool(x) for x in tm.get_history_function())
@@ -276,7 +290,7 @@ class Experiment5(BaseExperiment):
         hist_title = (f"TM config: cinta={tape_length}, cursor={head_bits}, "
                     f"estados={state_bits}")
         hist_path = os.path.join(self.run_dir, f"tm_histogram_{n_bits}bits.png")
-        self.plot_random_complexity_histogram(
+        self.plot_terms_literals_freqs_histogram(
             global_terms,
             global_literals,
             n_bits,
@@ -291,43 +305,46 @@ class Experiment5(BaseExperiment):
                                         head_bits=head_bits,
                                         state_bits=state_bits)
 
-
     # -------------------------
     # run_experiment principal
     # -------------------------
     def run_experiment(self):
         self.log_message(f"Guardando logs en: {self.run_dir}")
-        mode = config.EXPERIMENT4_MODE  # "random" o "tm"
-        self.log_message(f"Experiment5 corriendo en modo '{mode}'")
+        self.log_message(f"Experiment5 corriendo en modo '{self.mode}'")
 
-        if mode == "random":
+        if self.mode == "random":
             # Para cada config, tomamos "total_bits" y generamos funciones aleatorias
             for cfg in self.configs:
-                n_bits = cfg["total_bits"]
                 tape_length = cfg["tape_length"]
                 num_states = cfg["num_states"]
+                n_bits = cfg["total_bits"]
                 self.log_message(f"\n[Experiment5 - random] tape_length={tape_length}, num_states={num_states} => {n_bits} bits")
-                self.run_random_mode_for_nbits(n_bits, config.EXPERIMENT4_NUM_FUNCTIONS)
+                self.run_random_mode_for_nbits(n_bits, self.num_random_functions)
 
-        elif mode == "tm":
+        elif self.mode == "tm":
             # Probamos cada config con un rango de probabilidades
             trans_probs = np.linspace(config.MIN_PROB, config.MAX_PROB, config.NUM_PROBS)
             for cfg in self.configs:
                 tape_length = cfg["tape_length"]
                 num_states = cfg["num_states"]
-                n_bits = TuringMachine(tape_length, num_states).total_config_bits
+                n_bits = cfg["total_bits"]
                 self.log_message(f"[Experiment5 - tm] tape_length={tape_length}, num_states={num_states} => {n_bits} bits")
-                self.run_tm_mode_for_config(tape_length, num_states, trans_probs, config.NUM_EXPERIMENTS)
-        else:
-            self.log_message("Modo no reconocido en config.EXPERIMENT4_MODE.")
+                self.run_tm_mode_for_config(tape_length, num_states, trans_probs, n_bits)
 
-        self.log_message("Experiment 5 completado.")
-
+        self.log_message("Experimento 5 completado.")
 
 def run_experiment():
-    exp = Experiment5()
+    exp = Experiment5(mode="tm", num_random_functions=2000, configs=[
+        ## Batch with up to 4 states
+        # {"tape_length": 7,  "num_states": 2,  "total_bits": 12},
+        # {"tape_length": 9,  "num_states": 4,  "total_bits": 15},
+        # {"tape_length": 12,  "num_states": 4,  "total_bits": 18},
+        ## Batch with up to 8 states
+        # {"tape_length": 7,  "num_states": 4,  "total_bits": 12},
+        # {"tape_length": 9,  "num_states": 8,  "total_bits": 15},
+        {"tape_length": 12,  "num_states": 8,  "total_bits": 18},
+    ])
     exp.run_experiment()
-
 
 if __name__ == "__main__":
     run_experiment()
