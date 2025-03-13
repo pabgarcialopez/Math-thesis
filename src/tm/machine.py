@@ -8,7 +8,7 @@ class TuringMachine:
         self,
         tape_length: int,
         num_states: int,
-        total_bits: int = None,  # Now mandatory for the "sub" approach
+        total_bits: int = None,
         input_symbols={'0', '1'},
         blank_symbol='_',
         initial_head_position=1,
@@ -28,7 +28,7 @@ class TuringMachine:
         If total_bits is None, we raise an error.
         """
         if total_bits is None:
-            raise ValueError("TuringMachine requires total_bits (no old logic allowed).")
+            raise ValueError("TuringMachine requires total_bits.")
         if blank_symbol in input_symbols:
             raise ValueError("Blank symbol cannot be an input symbol.")
         
