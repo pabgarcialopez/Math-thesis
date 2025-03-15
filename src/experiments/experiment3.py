@@ -1,18 +1,22 @@
 # src/experiments/experiment3.py
 
+# Experiment3 is about comparing the complexities of the Turing Machine’s full state vs. 
+# its tape-only state, under varying transition probabilities, to see if ignoring head/state 
+# bits drastically changes the measured complexity.
+
 import os
 import numpy as np
 import src.config as config
 from tqdm import tqdm
-from src.plotters import (plot_metrics_vs_frequency, 
+from src.experiments.utils.plotters import (plot_metrics_vs_frequency, 
                           plot_equanimity_vs_entanglement_heatmap,
                           plot_metrics_difference_vs_probability,
                           plot_metrics_comparison_vs_probability)
-from src.utils.logger import save_execution_log
-from src.tm.generators import generate_tm_input_pairs
+from src.experiments.utils.logger import save_execution_log
+from src.tm.utils import generate_tm_input_pairs
 from src.tm.machine import TuringMachine
-from src.tm.validators import (equanimity_importance, equanimity_subsets,
-                               equanimity_subsets_normalized, entanglement)
+from src.experiments.metrics.entanglement import entanglement
+from src.experiments.metrics.equanimities import equanimity_importance, equanimity_subsets, equanimity_subsets_normalized
 from src.experiments.base_experiment import BaseExperiment
 
 class Experiment3(BaseExperiment):

@@ -10,7 +10,7 @@ This repository contains the code developed for my Final Degree Project (TFG) in
 
 ## Getting Started
 
-...
+* Execute an experiment: from the `TFG-mates` directory execute `python -m src.main --experiment experimentX`, where `experimentX` is the name of the experiment you want to execute (e.g,. "experiment1").
 
 ### Prerequisites
 

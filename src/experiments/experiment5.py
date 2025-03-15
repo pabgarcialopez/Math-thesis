@@ -12,8 +12,8 @@ from pyeda.boolalg.minimization import espresso_tts  # type: ignore
 import src.config as config
 from src.experiments.base_experiment import BaseExperiment
 from src.tm.machine import TuringMachine
-from src.tm.generators import generate_random_input, generate_tm_input_pairs
-from src.utils.logger import save_execution_log
+from src.tm.utils import generate_random_input, generate_tm_input_pairs
+from src.experiments.utils.logger import save_execution_log
 
 
 

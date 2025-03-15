@@ -1,6 +1,3 @@
-from collections import defaultdict
-from math import pow
-
 def create_map_truth_table(TT, x, depth, f):
     if depth == len(x):
         TT[tuple(x)] = f[len(TT)]

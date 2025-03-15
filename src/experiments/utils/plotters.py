@@ -1,16 +1,20 @@
-# src/plotters.py
+# src/experiments/utils/plotters.py
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_metrics_vs_frequency(frequencies, eq_imp_values, eq_sub_values, eq_sub_norm_values, entanglement_values, save_path=None):
+# ------------------------
+# Experiment 1
+# ------------------------
+
+def plot_probabilities_vs_metrics(probabilities, eq_imp_values, eq_sub_values, eq_sub_norm_values, entanglement_values, save_path=None):
     """
     Plot the relation between transition frequency and the final metric values.
     """
     plt.figure(figsize=(10, 6))
-    plt.plot(frequencies, eq_imp_values, marker='o', label='Equanimity Importance')
-    plt.plot(frequencies, eq_sub_values, marker='s', label='Equanimity Subsets')
-    plt.plot(frequencies, eq_sub_norm_values, marker='^', label='Equanimity Subsets Normalized')
-    plt.plot(frequencies, entanglement_values, marker='x', label='Entanglement')
+    plt.plot(probabilities, eq_imp_values, marker='o', label='Equanimity Importance')
+    plt.plot(probabilities, eq_sub_values, marker='s', label='Equanimity Subsets')
+    plt.plot(probabilities, eq_sub_norm_values, marker='^', label='Equanimity Subsets Normalized')
+    plt.plot(probabilities, entanglement_values, marker='x', label='Entanglement')
     
     plt.xlabel('Transition Frequency')
     plt.ylabel('Metric Value')
@@ -36,6 +40,10 @@ def plot_equanimity_vs_entanglement_heatmap(equanimity_values, entanglement_valu
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
     plt.show()
+
+# ------------------------
+# Experiment 2
+# ------------------------
 
 def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por tamaño mínimo", save_path=None):
     """

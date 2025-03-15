@@ -8,13 +8,17 @@ import math
 
 from src.experiments.base_experiment import BaseExperiment
 import src.config as config
-from src.utils.logger import save_execution_log
+from src.experiments.utils.logger import save_execution_log
 
 from pyeda.inter import exprvars, truthtable  # type: ignore
 from pyeda.boolalg.minimization import espresso_tts  # type: ignore
 
-from src.tm.generators import generate_tm_input_pairs
+from src.tm.utils import generate_tm_input_pairs
 from src.tm.machine import TuringMachine
+
+# Experiment4 is about observing the DNF complexity of Boolean functions derived from Turing Machines (mode “tm”) or from purely random truth tables (mode “random”).
+# In “tm” mode, it looks at how the transition probability influences the minimal DNF complexity of the visited-configurations function.
+# In “random” mode, it simply measures the minimal DNF of random functions of the same bit-size, to see if TMs produce simpler or more complex DNFs than random.
 
 class Experiment4(BaseExperiment):
     def __init__(self, mode, tape_length=5, num_states=4, total_bits=10, num_random_functions=2000):

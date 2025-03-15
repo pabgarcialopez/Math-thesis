@@ -1,46 +1,129 @@
 # src/experiments/base_experiment.py
+
 import os
-from src.config import LOGS_DIR
-from src.utils.logger import get_timestamped_log_dir
+from src.config import LOGS_PATH, SHOULD_LOG, SHOULD_PLOT
+from src.experiments.utils.logger import create_timestamped_dir, save_execution_log
+from src.tm.machine import TuringMachine
+from src.tm.utils import serialize_turing_machine
 
 class BaseExperiment:
     def __init__(self, experiment_name):
         self.experiment_name = experiment_name
-        self.run_dir = self.get_experiment_run_dir()
-
-    def get_experiment_run_dir(self):
-        """
-        Crea y devuelve un directorio con timestamp para la ejecución del experimento.
-        Estructura: <LOGS_DIR>/<experiment_name>/<timestamp>/
-        """
-        base_dir = os.path.join(LOGS_DIR, self.experiment_name)
+        base_dir = os.path.join(LOGS_PATH, self.experiment_name)
         if not os.path.exists(base_dir):
             os.makedirs(base_dir)
-        run_dir = get_timestamped_log_dir(base_directory=base_dir)
-        return run_dir
+        self.run_dir = create_timestamped_dir(base_dir)
 
     def log_message(self, message, prefix="[INFO]"):
         print(f"{prefix} {message}")
 
-    def run_experiment(self):
+    def log_data(self, data, filename="experiment_log.json", directory=None):
         """
-        Método abstracto. Las subclases deben implementar run_experiment().
+        Logs 'data' to a JSON file. By default, logs to self.run_dir,
+        but if 'directory' is provided, logs to that subdirectory.
         """
-        raise NotImplementedError("Subclasses must implement run_experiment()")
+        if directory is None:
+            directory = self.run_dir
+        save_execution_log(data, filename=filename, directory=directory)
 
-def project_history_to_boolean_function(config_history):
-    """
-    Dada una lista de configuraciones en binario (por ejemplo, total_config_bits),
-    proyecta a los primeros 5 (por defecto) bits.
-    """
-    observed = set()
-    for config in config_history:
-        tape_bits = config[:5]  # 5 bits fijos. Cambiarlo segun convenga
-        observed.add(tape_bits)
+    def create_config_subdir(self, config_label):
+        """
+        Creates and returns a subdirectory inside self.run_dir,
+        labeled with 'config_label'.
+        """
+        config_dir = os.path.join(self.run_dir, config_label)
+        os.makedirs(config_dir, exist_ok=True)
+        return config_dir
+
+    def save_plot(self, figure, filename, directory=None):
+        """
+        Saves a Matplotlib figure to 'filename'. By default in self.run_dir,
+        or in 'directory' if provided.
+        """
+        if directory is None:
+            directory = self.run_dir
+        figure.savefig(os.path.join(directory, filename), bbox_inches='tight')
+
+    def should_log(self):
+        return SHOULD_LOG
+
+    def should_plot(self):
+        return SHOULD_PLOT
+
+    def run_experiment(self):
+        raise NotImplementedError("Subclasses must implement run_experiment()")
     
-    truth_table = ""
-    for i in range(32):
-        pattern = format(i, '05b')
-        truth_table += "1" if pattern in observed else "0"
+    def generate_turing_machines(self, num_machines, config, probability):
+        """
+        Creates 'num_machines' TuringMachine instances with the given bit partition
+        and transition probability. Experiments can override or extend this if they
+        need to pass additional parameters (like binary_input, etc.).
+        """
+        tape_bits = config['tape_bits']
+        head_bits = config['head_bits']
+        state_bits = config['state_bits']
+
+        return [
+            TuringMachine(
+                tape_bits=tape_bits,
+                head_bits=head_bits,
+                state_bits=state_bits,
+                probability=probability
+            )
+            for _ in range(num_machines)
+        ]
     
-    return int(truth_table, 2)
+    def run_and_collect(
+        self,
+        config,
+        probabilities,
+        num_machines,
+        metric_callback,
+        aggregate_callback=None,
+        log_each_machine=True,
+        directory=None
+    ):
+        """
+        Iterates over 'probabilities'. For each probability 'p':
+          1) Creates 'n_machines' Turing Machines via 'create_machine_fn(base_config, p)'
+          2) Runs each machine, collects metrics via 'metric_callback'
+          3) Optionally logs each machine's result if 'log_each_machine' is True
+          4) Aggregates metrics if 'aggregate_callback' is provided
+
+        Returns a list of dicts, each with:
+          {
+            "probability": p,
+            "metrics_list": [ ... raw metrics for each machine ... ],
+            "aggregated": ... result of aggregate_callback(...) if provided ...
+          }
+        """
+        if directory is None:
+            directory = self.run_dir
+
+        results = []
+        for idx, probability in enumerate(probabilities):
+            metrics_list = []
+            turing_machines = self.generate_turing_machines(num_machines, config, probability)
+            for i, tm in enumerate(turing_machines):
+                tm.run()
+                metrics = metric_callback(tm)
+                metrics_list.append(metrics)
+
+                if self.should_log() and log_each_machine:
+                    filename = f"prob_{idx+1}_machine_{i+1}.json"
+                    self.log_data({
+                        "turing_machine": serialize_turing_machine(tm),
+                        "metrics": metrics
+                    }, filename=filename, directory=directory)
+
+            aggregated = None
+            if aggregate_callback is not None:
+                aggregated = aggregate_callback(metrics_list)
+
+            results.append({
+                "probability": float(probability),
+                "metrics_list": metrics_list,
+                "aggregated": aggregated
+            })
+
+        return results
