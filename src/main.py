@@ -13,7 +13,6 @@ def main():
 
     try:
         experiment_module = import_module(f"src.experiments.{args.experiment}")
-        print(experiment_module)
     except ImportError as e:
         print(f"Error: could not import experiment '{args.experiment}'. Details: {e}")
         sys.exit(1)

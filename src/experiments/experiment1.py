@@ -20,18 +20,19 @@ from src.tm.utils import get_history_function
 
 
 def metric_callback(tm):
+    N = tm.config_bits  # e.g. tape_bits + head_bits + state_bits
+
     history_func = get_history_function(tm)
-    eq_imp = equanimity_importance(history_func)
-    eq_sub = equanimity_subsets(history_func)
-    eq_sub_norm = equanimity_subsets_normalized(history_func)
-    ent = entanglement(history_func)
+    eq_imp = equanimity_importance(history_func, N)
+    eq_sub = equanimity_subsets(history_func, N)
+    eq_sub_norm = equanimity_subsets_normalized(history_func, N)
+    ent = entanglement(history_func, N)
     return {
         "eq_imp": eq_imp,
         "eq_sub": eq_sub,
         "eq_sub_norm": eq_sub_norm,
         "ent": ent,
         "outcome": tm.outcome,
-        "history_func": ''.join(history_func),
     }
 
 def aggregate_callback(metrics_list):
@@ -54,7 +55,7 @@ class Experiment1(BaseExperiment):
         super().__init__("experiment1")
         self.configs = [
             {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
-            {"tape_bits": 7, "head_bits": 3, "state_bits": 2}
+            # {"tape_bits": 7, "head_bits": 3, "state_bits": 2}
         ]
 
     def run_experiment(self):
@@ -107,32 +108,30 @@ class Experiment1(BaseExperiment):
                 heatmap_eq_imp.append(m["eq_imp"])
                 heatmap_ent.append(m["ent"])
 
-        # Plot if desired
-        if self.should_plot():
-            if avg_eq_imp:
-                metrics_plot_path = os.path.join(config_dir, "metrics_vs_transition_probability.png")
-                plot_probabilities_vs_metrics(
-                    probabilities,
-                    avg_eq_imp,
-                    avg_eq_sub,
-                    avg_eq_sub_norm,
-                    avg_ent,
-                    save_path=metrics_plot_path
-                )
-            if heatmap_eq_imp:
-                heatmap_plot_path = os.path.join(config_dir, "heatmap_eq_imp_vs_ent.png")
-                plot_equanimity_vs_entanglement_heatmap(
-                    heatmap_eq_imp,
-                    heatmap_ent,
-                    bins=25,
-                    save_path=heatmap_plot_path
-                )
+        if avg_eq_imp:
+            metrics_plot_path = os.path.join(config_dir, "metrics_vs_transition_probability.png")
+            plot_probabilities_vs_metrics(
+                probabilities,
+                avg_eq_imp,
+                avg_eq_sub,
+                avg_eq_sub_norm,
+                avg_ent,
+                save_path=metrics_plot_path
+            )
+        if heatmap_eq_imp:
+            heatmap_plot_path = os.path.join(config_dir, "heatmap_eq_imp_vs_ent.png")
+            plot_equanimity_vs_entanglement_heatmap(
+                heatmap_eq_imp,
+                heatmap_ent,
+                bins=25,
+                save_path=heatmap_plot_path
+            )
 
         # Log aggregated data if desired
         if self.should_log():
             aggregated_log = {
                 "config": config,
-                "probabilities": probabilities.tolist(),
+                "probabilities": list(probabilities),
                 "avg_eq_imp": avg_eq_imp,
                 "avg_eq_sub": avg_eq_sub,
                 "avg_eq_sub_norm": avg_eq_sub_norm,

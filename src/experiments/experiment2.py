@@ -67,10 +67,9 @@ class Experiment2(BaseExperiment):
             self.log_message("Summary data saved as experiment2_summary.json")
 
         # 6) Plot a histogram of circuit sizes
-        if self.should_plot():
-            histogram_path = os.path.join(self.run_dir, "final_histogram.png")
-            plot_frequency_histogram(grouped_freq, save_path=histogram_path)
-            self.log_message(f"Final histogram saved to: {histogram_path}")
+        histogram_path = os.path.join(self.run_dir, "final_histogram.png")
+        plot_frequency_histogram(grouped_freq, save_path=histogram_path)
+        self.log_message(f"Final histogram saved to: {histogram_path}")
 
         self.log_message("Experiment 2 analysis completed.")
 
@@ -128,12 +127,14 @@ class Experiment2(BaseExperiment):
         freq_dict = defaultdict(int)
         logs = self.load_json_logs(log_directory)
         for log in logs:
+            if "turing_machine" not in log: continue
             config_history = log['turing_machine']['config_history']
             tape_length = log['turing_machine']['tape_bits']
+            assert tape_length == 5, "Projection must be onto 5 bits for experiment 2"
             # Get the tape projection of the turing machine
             projected_history_func = get_projected_history_function(config_history, projection=range(tape_length))
-            str_projected_history_func = "".join(projected_history_func)
-            freq_dict[str_projected_history_func] += 1
+            key = int("".join(map(str, projected_history_func)), 2)
+            freq_dict[key] += 1
         return dict(freq_dict)
 
     def analyze_representation(self, freq_dict, dataset):

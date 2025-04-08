@@ -25,13 +25,13 @@ def generate_random_transitions(turing_machine):
                 transition_function[(state, symbol)] = (next_state, write_symbol, direction)
     return transition_function
 
-def generate_turing_machines(num_machines, tape_bits, head_bits, state_bits, trans_prob):
+def generate_turing_machines(num_machines, config, probability):
     return [
         TuringMachine(
-            tape_bits=tape_bits,
-            head_bits=head_bits,
-            state_bits=state_bits,
-            trans_prob=trans_prob)
+            tape_bits=config['tape_bits'],
+            head_bits=config['head_bits'],
+            state_bits=config['state_bits'],
+            probability=probability)
 
         for _ in range(num_machines)
     ]
@@ -39,6 +39,9 @@ def generate_turing_machines(num_machines, tape_bits, head_bits, state_bits, tra
 # --------------------------------------------------------------------------------------------------
 # GETTERS for the Turing Machine
 # --------------------------------------------------------------------------------------------------
+
+def get_num_steps(turing_machine):
+    return turing_machine.num_steps
 
 def get_configuration(turing_machine):
     """

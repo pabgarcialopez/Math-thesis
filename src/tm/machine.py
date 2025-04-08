@@ -1,27 +1,30 @@
 # tm/machine.py
 
 import math
-from utils import *
 
 class TuringMachine:
     def __init__(self, tape_bits, head_bits, state_bits, binary_input=None, probability=0.5):
 
         self.tape = None
+        self.tape_bits = tape_bits
         self.head_bits = head_bits
         self.state_bits = state_bits
-        self.trans_prob = probability
+        self.trans_prob = probability  # Transition probability
         
         # Initialize tape
         if binary_input is None:
+            from src.tm.utils import generate_random_input
             binary_input = generate_random_input(tape_bits)
         self.binary_input = binary_input
         self.tape = list(binary_input)
 
         # Initialize machine's internal info
         self.outcome = None
-        self.head_position = 1
+        self.num_steps = 0
+        self.head_position = 0
         self.current_state = 0
         
+        from src.tm.utils import generate_random_transitions
         self.transition_function = generate_random_transitions(self)
 
         self.config_history = set()
@@ -50,13 +53,15 @@ class TuringMachine:
         next_state, write_symbol, direction = transition
         self.current_state = next_state
         self.tape[self.head_position] = write_symbol
-        self.move_head(direction)        
+        self.move_head(direction)
+        self.num_steps += 1
 
     def run(self):
         """
         Runs the Turing Machine, recording configurations in self.config_history,
         until it halts or enters a loop.
         """
+        from src.tm.utils import get_configuration
         
         while True:
             result = self.step()

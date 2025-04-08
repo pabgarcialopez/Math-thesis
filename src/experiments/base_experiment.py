@@ -3,7 +3,7 @@
 import os
 from src.config import LOGS_PATH, SHOULD_LOG, SHOULD_PLOT
 from src.experiments.utils.logger import create_timestamped_dir, save_execution_log
-from src.tm.machine import TuringMachine
+from src.tm.utils import generate_turing_machines
 from src.tm.utils import serialize_turing_machine
 
 class BaseExperiment:
@@ -47,31 +47,8 @@ class BaseExperiment:
     def should_log(self):
         return SHOULD_LOG
 
-    def should_plot(self):
-        return SHOULD_PLOT
-
     def run_experiment(self):
         raise NotImplementedError("Subclasses must implement run_experiment()")
-    
-    def generate_turing_machines(self, num_machines, config, probability):
-        """
-        Creates 'num_machines' TuringMachine instances with the given bit partition
-        and transition probability. Experiments can override or extend this if they
-        need to pass additional parameters (like binary_input, etc.).
-        """
-        tape_bits = config['tape_bits']
-        head_bits = config['head_bits']
-        state_bits = config['state_bits']
-
-        return [
-            TuringMachine(
-                tape_bits=tape_bits,
-                head_bits=head_bits,
-                state_bits=state_bits,
-                probability=probability
-            )
-            for _ in range(num_machines)
-        ]
     
     def run_and_collect(
         self,
@@ -103,7 +80,7 @@ class BaseExperiment:
         results = []
         for idx, probability in enumerate(probabilities):
             metrics_list = []
-            turing_machines = self.generate_turing_machines(num_machines, config, probability)
+            turing_machines = generate_turing_machines(num_machines, config, probability)
             for i, tm in enumerate(turing_machines):
                 tm.run()
                 metrics = metric_callback(tm)

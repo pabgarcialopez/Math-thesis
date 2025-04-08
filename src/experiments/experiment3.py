@@ -6,160 +6,227 @@
 
 import os
 import numpy as np
-import src.config as config
 from tqdm import tqdm
-from src.experiments.utils.plotters import (plot_metrics_vs_frequency, 
-                          plot_equanimity_vs_entanglement_heatmap,
-                          plot_metrics_difference_vs_probability,
-                          plot_metrics_comparison_vs_probability)
-from src.experiments.utils.logger import save_execution_log
-from src.tm.utils import generate_tm_input_pairs
-from src.tm.machine import TuringMachine
-from src.experiments.metrics.entanglement import entanglement
-from src.experiments.metrics.equanimities import equanimity_importance, equanimity_subsets, equanimity_subsets_normalized
+
+import src.config as config
 from src.experiments.base_experiment import BaseExperiment
+from src.experiments.utils.plotters import (
+    plot_probabilities_vs_metrics,
+    plot_equanimity_vs_entanglement_heatmap,
+    plot_probabilities_vs_metrics_difference,
+    plot_metrics_comparison_vs_probability
+)
+from src.experiments.metrics.entanglement import entanglement
+from src.experiments.metrics.equanimities import (
+    equanimity_importance,
+    equanimity_subsets,
+    equanimity_subsets_normalized
+)
+from src.tm.utils import get_history_function, get_projected_history_function
+
+
+def metric_callback(tm):
+    """
+    Computes metrics for both:
+      - projected_history_func (the tape-only part)
+      - full history_func (tape+head+state)
+
+    Returns a dictionary containing both sets of metrics.
+    """
+    # Full config
+    N = tm.config_bits
+    full_hist = get_history_function(tm)
+    eq_imp_full = equanimity_importance(full_hist, N)
+    eq_sub_full = equanimity_subsets(full_hist, N)
+    eq_sub_norm_full = equanimity_subsets_normalized(full_hist, N)
+    ent_full = entanglement(full_hist, N)
+
+    # Projected config (first tape_bits)
+    tape_bits = tm.tape_bits
+    proj_hist = get_projected_history_function(tm.config_history, projection=range(tape_bits))
+    eq_imp_proj = equanimity_importance(proj_hist, tape_bits)
+    eq_sub_proj = equanimity_subsets(proj_hist, tape_bits)
+    eq_sub_norm_proj = equanimity_subsets_normalized(proj_hist, tape_bits)
+    ent_proj = entanglement(proj_hist, tape_bits)
+
+    return {
+        "eq_imp_proj": eq_imp_proj,
+        "eq_sub_proj": eq_sub_proj,
+        "eq_sub_norm_proj": eq_sub_norm_proj,
+        "ent_proj": ent_proj,
+
+        "eq_imp_full": eq_imp_full,
+        "eq_sub_full": eq_sub_full,
+        "eq_sub_norm_full": eq_sub_norm_full,
+        "ent_full": ent_full,
+
+        "outcome": tm.outcome
+    }
+
+def aggregate_callback(metrics_list):
+    """
+    Averages the 'proj' and 'full' metrics over the entire list of Turing Machines.
+    """
+    if not metrics_list:
+        return {}
+    n = len(metrics_list)
+
+    # We'll sum them up, then divide
+    sums = {
+        "eq_imp_proj": 0, "eq_sub_proj": 0, "eq_sub_norm_proj": 0, "ent_proj": 0,
+        "eq_imp_full": 0, "eq_sub_full": 0, "eq_sub_norm_full": 0, "ent_full": 0
+    }
+    for m in metrics_list:
+        for k in sums.keys():
+            sums[k] += m[k]
+
+    # Compute means
+    for k in sums.keys():
+        sums[k] /= n
+
+    return {
+        "mean_eq_imp_proj": sums["eq_imp_proj"],
+        "mean_eq_sub_proj": sums["eq_sub_proj"],
+        "mean_eq_sub_norm_proj": sums["eq_sub_norm_proj"],
+        "mean_ent_proj": sums["ent_proj"],
+
+        "mean_eq_imp_full": sums["eq_imp_full"],
+        "mean_eq_sub_full": sums["eq_sub_full"],
+        "mean_eq_sub_norm_full": sums["eq_sub_norm_full"],
+        "mean_ent_full": sums["ent_full"]
+    }
+
 
 class Experiment3(BaseExperiment):
-    def __init__(self, tape_length, num_states, total_bits):
+    """
+    Compares complexities (equanimity, entanglement) of the Turing Machine’s
+    full state vs. tape-only state, under varying transition probabilities.
+    """
+
+    def __init__(self):
         super().__init__("experiment3")
-        self.tape_length = tape_length
-        self.num_states = num_states
-        self.total_bits = total_bits
-
-    def run_single_experiment(self, tm, trans_prob=None):
-        result = tm.run()
-        history_func = tm.get_history_function()
-        projected_history_func = tm.get_projected_history_function()
-
-        # Métricas para la proyección (tape_length bits)
-        eq_imp_5 = equanimity_importance(projected_history_func, tm.tape_length)
-        eq_sub_5 = equanimity_subsets(projected_history_func, tm.tape_length)
-        eq_sub_5_norm = equanimity_subsets_normalized(projected_history_func, tm.tape_length)
-        ent_5 = entanglement(projected_history_func, tm.tape_length)
-
-        # Métricas para la función completa (tape+head+state)
-        eq_imp_10 = equanimity_importance(history_func, tm.total_config_bits)
-        eq_sub_10 = equanimity_subsets(history_func, tm.total_config_bits)
-        eq_sub_10_norm = equanimity_subsets_normalized(history_func, tm.total_config_bits)
-        ent_10 = entanglement(history_func, tm.total_config_bits)
-
-        transition_function = {
-            f"{state},{symbol}": [next_state, write_symbol, direction]
-            for (state, symbol), (next_state, write_symbol, direction) in tm.transition_function.items()
-        }
-        num_steps = len(tm.config_history) - 1
-
-        log_data = {
-            "transition_probability": trans_prob,
-            "tm_parameters": {
-                "tape_length": tm.tape_length,
-                "num_states": tm.num_states,
-                "input_symbols": list(tm.input_symbols),
-                "blank_symbol": tm.blank_symbol,
-                "initial_head_position": tm.initial_head_position,
-                "accepting_states": tm.accepting_states,
-                "transition_function": transition_function,
-            },
-            "input": tm.binary_input,
-            "execution": {
-                "num_steps": num_steps,
-                "result": result,
-            },
-            "metrics_proj": {
-                "eq_imp_proj": eq_imp_5,
-                "eq_sub_proj": eq_sub_5,
-                "eq_sub_norm_proj": eq_sub_5_norm,
-                "ent_proj": ent_5,
-            },
-            "metrics_full": {
-                "eq_imp_full": eq_imp_10,
-                "eq_sub_full": eq_sub_10,
-                "eq_sub_norm_full": eq_sub_10_norm,
-                "ent_full": ent_10,
-            },
-            "config_history": tm.config_history
-        }
-
-        return log_data, (eq_imp_5, eq_sub_5, eq_sub_5_norm, ent_5), (eq_imp_10, eq_sub_10, eq_sub_10_norm, ent_10)
+        self.configs = [
+            {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
+            # {"tape_bits": 7, "head_bits": 3, "state_bits": 2},
+        ]
 
     def run_experiment(self):
-        self.log_message(f"Saving logs to: {self.run_dir}")
+        self.log_message(f"Running Experiment3. Logs in: {self.run_dir}")
+        probabilities = np.linspace(config.MIN_PROB, config.MAX_PROB, config.NUM_PROBS)
 
-        trans_probs = np.linspace(config.MIN_PROB, config.MAX_PROB, config.NUM_PROBS)
-        
-        avg_eq_imp_5, avg_eq_sub_5, avg_eq_sub_5_norm, avg_ent_5 = [], [], [], []
-        avg_eq_imp_10, avg_eq_sub_10, avg_eq_sub_10_norm, avg_ent_10 = [], [], [], []
-        
-        for p_idx, prob in enumerate(tqdm(trans_probs, desc="Experiment 3", colour="green")):
-            eq_imp_5_list, eq_sub_5_list, eq_sub_5_norm_list, ent_5_list = [], [], [], []
-            eq_imp_10_list, eq_sub_10_list, eq_sub_10_norm_list, ent_10_list = [], [], [], []
-            
-            machines = generate_tm_input_pairs(
-                config.NUM_EXPERIMENTS,
-                trans_prob=prob,
-                tape_length=self.tape_length,
-                num_states=self.num_states,
-                total_bits=self.total_bits
+        for cfg in self.configs:
+            config_label = f"tape{cfg['tape_bits']}_head{cfg['head_bits']}_state{cfg['state_bits']}"
+            config_dir = self.create_config_subdir(config_label)
+
+            # Collect metrics
+            results = self.run_and_collect(
+                config=cfg,
+                probabilities=probabilities,
+                num_machines=config.NUM_EXPERIMENTS,
+                metric_callback=metric_callback,
+                aggregate_callback=aggregate_callback,
+                log_each_machine=True,
+                directory=config_dir
             )
 
-            for i, tm in enumerate(machines):
-                log_data, metrics5, metrics10 = self.run_single_experiment(tm, trans_prob=prob)
-                eq_imp_5_val, eq_sub_5_val, eq_sub_5_norm_val, ent_5_val = metrics5
-                eq_imp_10_val, eq_sub_10_val, eq_sub_10_norm_val, ent_10_val = metrics10
-
-                eq_imp_5_list.append(eq_imp_5_val)
-                eq_sub_5_list.append(eq_sub_5_val)
-                eq_sub_5_norm_list.append(eq_sub_5_norm_val)
-                ent_5_list.append(ent_5_val)
-
-                eq_imp_10_list.append(eq_imp_10_val)
-                eq_sub_10_list.append(eq_sub_10_val)
-                eq_sub_10_norm_list.append(eq_sub_10_norm_val)
-                ent_10_list.append(ent_10_val)
-
-                filename = f"prob_{p_idx+1}_machine_{i+1}.json"
-                save_execution_log(log_data, filename=filename, directory=self.run_dir)
-
-            # Promedios
-            avg_eq_imp_5.append(sum(eq_imp_5_list) / len(eq_imp_5_list))
-            avg_eq_sub_5.append(sum(eq_sub_5_list) / len(eq_sub_5_list))
-            avg_eq_sub_5_norm.append(sum(eq_sub_5_norm_list) / len(eq_sub_5_norm_list))
-            avg_ent_5.append(sum(ent_5_list) / len(ent_5_list))
-
-            avg_eq_imp_10.append(sum(eq_imp_10_list) / len(eq_imp_10_list))
-            avg_eq_sub_10.append(sum(eq_sub_10_list) / len(eq_sub_10_list))
-            avg_eq_sub_10_norm.append(sum(eq_sub_10_norm_list) / len(eq_sub_10_norm_list))
-            avg_ent_10.append(sum(ent_10_list) / len(ent_10_list))
-
-        if config.GENERATE_PLOTS:
-            metrics_plot_path = os.path.join(self.run_dir, "metrics_full_vs_transition_probability.png")
-            plot_metrics_vs_frequency(trans_probs, avg_eq_imp_10, avg_eq_sub_10, avg_eq_sub_10_norm, avg_ent_10,
-                                      save_path=metrics_plot_path)
-            
-            # Diferencias (full - proj)
-            diff_eq_imp = [m10 - m5 for m10, m5 in zip(avg_eq_imp_10, avg_eq_imp_5)]
-            diff_eq_sub = [m10 - m5 for m10, m5 in zip(avg_eq_sub_10, avg_eq_sub_5)]
-            diff_eq_sub_norm = [m10 - m5 for m10, m5 in zip(avg_eq_sub_10_norm, avg_eq_sub_5_norm)]
-            diff_ent = [m10 - m5 for m10, m5 in zip(avg_ent_10, avg_ent_5)]
-            diff_plot_path = os.path.join(self.run_dir, "metrics_difference_vs_transition_probability.png")
-            plot_metrics_difference_vs_probability(trans_probs, diff_eq_imp, diff_eq_sub, diff_eq_sub_norm, diff_ent,
-                                                   save_path=diff_plot_path)
-            
-            # Gráfica comparativa
-            comparison_plot_path = os.path.join(self.run_dir, "metrics_comparison_vs_transition_probability.png")
-            plot_metrics_comparison_vs_probability(
-                trans_probs,
-                avg_eq_imp_5, avg_eq_imp_10,
-                avg_eq_sub_5, avg_eq_sub_10,
-                avg_eq_sub_5_norm, avg_eq_sub_10_norm,
-                avg_ent_5, avg_ent_10,
-                save_path=comparison_plot_path
-            )
+            # Process final results (plotting, difference arrays, etc.)
+            self.process_experiment_results(cfg, probabilities, results, config_dir)
 
         self.log_message("Experiment 3 completed.")
 
+    def process_experiment_results(self, cfg, probabilities, results, config_dir):
+        """
+        Extracts the aggregated 'proj' vs 'full' metrics, plots differences, logs data, etc.
+        """
+        # We'll store each probability's average proj metrics in arrays,
+        # and each probability's average full metrics in arrays
+        avg_eq_imp_proj = []
+        avg_eq_sub_proj = []
+        avg_eq_sub_norm_proj = []
+        avg_ent_proj = []
+
+        avg_eq_imp_full = []
+        avg_eq_sub_full = []
+        avg_eq_sub_norm_full = []
+        avg_ent_full = []
+
+        for r in results:
+            agg = r["aggregated"]
+            if not agg: # No data
+                continue
+
+            avg_eq_imp_proj.append(agg["mean_eq_imp_proj"])
+            avg_eq_sub_proj.append(agg["mean_eq_sub_proj"])
+            avg_eq_sub_norm_proj.append(agg["mean_eq_sub_norm_proj"])
+            avg_ent_proj.append(agg["mean_ent_proj"])
+
+            avg_eq_imp_full.append(agg["mean_eq_imp_full"])
+            avg_eq_sub_full.append(agg["mean_eq_sub_full"])
+            avg_eq_sub_norm_full.append(agg["mean_eq_sub_norm_full"])
+            avg_ent_full.append(agg["mean_ent_full"])
+
+        if avg_eq_imp_full:
+            # 1) Plot full metrics vs probability
+            full_metrics_path = os.path.join(config_dir, "metrics_full_vs_probability.png")
+            plot_probabilities_vs_metrics(
+                probabilities,
+                avg_eq_imp_full,
+                avg_eq_sub_full,
+                avg_eq_sub_norm_full,
+                avg_ent_full,
+                save_path=full_metrics_path
+            )
+
+            # 2) Differences (full - proj)
+            diff_eq_imp = [f - p for f, p in zip(avg_eq_imp_full, avg_eq_imp_proj)]
+            diff_eq_sub = [f - p for f, p in zip(avg_eq_sub_full, avg_eq_sub_proj)]
+            diff_eq_sub_norm = [f - p for f, p in zip(avg_eq_sub_norm_full, avg_eq_sub_norm_proj)]
+            diff_ent = [f - p for f, p in zip(avg_ent_full, avg_ent_proj)]
+
+            diff_path = os.path.join(config_dir, "metrics_difference_vs_probability.png")
+            plot_probabilities_vs_metrics_difference(
+                probabilities,
+                diff_eq_imp,
+                diff_eq_sub,
+                diff_eq_sub_norm,
+                diff_ent,
+                save_path=diff_path
+            )
+
+            # 3) Grouped bar chart comparing proj vs full
+            comparison_path = os.path.join(config_dir, "metrics_comparison_vs_probability.png")
+            plot_metrics_comparison_vs_probability(
+                probabilities,
+                avg_eq_imp_proj, avg_eq_imp_full,
+                avg_eq_sub_proj, avg_eq_sub_full,
+                avg_eq_sub_norm_proj, avg_eq_sub_norm_full,
+                avg_ent_proj, avg_ent_full,
+                save_path=comparison_path
+            )
+
+        # Optionally log aggregated data
+        if self.should_log():
+            aggregated_data = {
+                "config": cfg,
+                "probabilities": probabilities.tolist(),
+                "proj": {
+                    "eq_imp": avg_eq_imp_proj,
+                    "eq_sub": avg_eq_sub_proj,
+                    "eq_sub_norm": avg_eq_sub_norm_proj,
+                    "ent": avg_ent_proj
+                },
+                "full": {
+                    "eq_imp": avg_eq_imp_full,
+                    "eq_sub": avg_eq_sub_full,
+                    "eq_sub_norm": avg_eq_sub_norm_full,
+                    "ent": avg_ent_full
+                }
+            }
+            self.log_data(aggregated_data, filename="aggregated_metrics.json", directory=config_dir)
+
+
 def run_experiment():
-    exp = Experiment3(tape_length=5, num_states=4, total_bits=10)
+    exp = Experiment3()
     exp.run_experiment()
 
 if __name__ == "__main__":
