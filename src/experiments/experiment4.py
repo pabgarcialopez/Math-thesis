@@ -19,20 +19,14 @@ We allow multiple configurations (each specifying tape_bits, head_bits, and stat
 For each config, we repeat the process systematically.
 """
 
-from collections import defaultdict
 import os
 import random
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from pyeda.inter import exprvars, truthtable # type: ignore
-from pyeda.boolalg.minimization import espresso_tts # type: ignore
-
-import src.config as config
-from src.experiments.base_experiment import BaseExperiment
-from src.experiments.utils.logger import save_execution_log
-from src.experiments.utils.plotters import (
+import src.experiments.config as config
+from src.experiments.base_experiment import Experiment
+from src.experiments.utils.plotter import (
     plot_length_vs_complexity_heatmap,
     plot_random_vs_tm_comparison,
     plot_terms_literals_freqs_histogram,
@@ -40,42 +34,11 @@ from src.experiments.utils.plotters import (
     plot_bucket_histogram,
     plot_curve_with_max_line,
 )
+from src.experiments.utils.computing import measure_minimal_dnf
 from src.tm.utils import get_history_function, generate_turing_machines, get_num_steps
 
 
-def measure_minimal_dnf(bool_vector):
-    """
-    Given a boolean vector (list of 0/1 or False/True) of length 2^n,
-    build a PyEDA truthtable, run espresso_tts,
-    and return (num_terms, total_literals) for the minimal DNF expression.
-    """
-    n = int(np.log2(len(bool_vector)))
-    xs = exprvars('x', n)
-    bool_tuple = tuple(bool(x) for x in bool_vector)
-
-    tt = truthtable(xs, bool_tuple)
-    min_exprs = espresso_tts(tt)
-    if not min_exprs:
-        return 0, 0
-    expr = min_exprs[0]
-
-    ast = expr.to_ast()
-    if isinstance(ast, tuple) and ast[0] == 'or':
-        terms = ast[1:]
-    else:
-        terms = [ast]
-
-    num_terms = len(terms)
-    total_literals = 0
-    for term in terms:
-        if isinstance(term, tuple) and term[0] == 'and':
-            total_literals += len(term) - 1
-        else:
-            total_literals += 1
-    return num_terms, total_literals
-
-
-class Experiment4(BaseExperiment):
+class Experiment4(Experiment):
     """
     Experiment4 measures the minimal DNF complexity of boolean functions derived either from:
       - Turing Machines (“tm” mode), varying transition probabilities,
@@ -208,7 +171,7 @@ class Experiment4(BaseExperiment):
             tms = generate_turing_machines(
                 num_machines=config.NUM_EXPERIMENTS,
                 config={'tape_bits': tape_bits, 'head_bits': head_bits, 'state_bits': state_bits},
-                probability=prob
+                transition_probability=prob
             )
             for i, tm in enumerate(tms):
                 tm.run()

@@ -1,21 +1,13 @@
-# tm/machine.py
 
-import math
 
 class TuringMachine:
-    def __init__(self, tape_bits, head_bits, state_bits, binary_input=None, probability=0.5):
+    def __init__(self, *, config, binary_input, transition_function):
 
-        self.tape = None
-        self.tape_bits = tape_bits
-        self.head_bits = head_bits
-        self.state_bits = state_bits
-        self.trans_prob = probability  # Transition probability
+        self.tape_bits = config['tape_bits']
+        self.head_bits = config['head_bits']
+        self.state_bits = config['state_bits']
         
         # Initialize tape
-        if binary_input is None:
-            from src.tm.utils import generate_random_input
-            binary_input = generate_random_input(tape_bits)
-        self.binary_input = binary_input
         self.tape = list(binary_input)
 
         # Initialize machine's internal info
@@ -24,11 +16,13 @@ class TuringMachine:
         self.head_position = 0
         self.current_state = 0
         
-        from src.tm.utils import generate_random_transitions
-        self.transition_function = generate_random_transitions(self)
+        # Use passed transition function if any. Otherwise, generate a random one
+        self.transition_function = transition_function
 
-        self.config_history = set()
-        self.config_bits = tape_bits + head_bits + state_bits
+        # Initialize the configuration history
+        from src.tm.utils import get_configuration
+        self.config_history = set([get_configuration(self)])
+        self.config_bits = self.tape_bits + self.head_bits + self.state_bits
 
 
     def move_head(self, direction):

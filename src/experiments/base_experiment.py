@@ -1,51 +1,23 @@
-# src/experiments/base_experiment.py
+from src.experiments.config import LOGS_PATH, TRANSITION_PROBABILITIES, NUM_EXPERIMENTS_PER_CONFIG
+from src.experiments.utils.logger import create_subdirectory
+from src.tm.utils import generate_turing_machines, serialize_turing_machine
 
-import os
-from src.config import LOGS_PATH, SHOULD_LOG, SHOULD_PLOT
-from src.experiments.utils.logger import create_timestamped_dir, save_execution_log
-from src.tm.utils import generate_turing_machines
-from src.tm.utils import serialize_turing_machine
-
-class BaseExperiment:
+class Experiment:
     def __init__(self, experiment_name):
-        self.experiment_name = experiment_name
-        base_dir = os.path.join(LOGS_PATH, self.experiment_name)
-        if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-        self.run_dir = create_timestamped_dir(base_dir)
-
-    def log_message(self, message, prefix="[INFO]"):
-        print(f"{prefix} {message}")
-
-    def log_data(self, data, filename="experiment_log.json", directory=None):
-        """
-        Logs 'data' to a JSON file. By default, logs to self.run_dir,
-        but if 'directory' is provided, logs to that subdirectory.
-        """
-        if directory is None:
-            directory = self.run_dir
-        save_execution_log(data, filename=filename, directory=directory)
-
-    def create_config_subdir(self, config_label):
-        """
-        Creates and returns a subdirectory inside self.run_dir,
-        labeled with 'config_label'.
-        """
-        config_dir = os.path.join(self.run_dir, config_label)
-        os.makedirs(config_dir, exist_ok=True)
-        return config_dir
-
-    def save_plot(self, figure, filename, directory=None):
-        """
-        Saves a Matplotlib figure to 'filename'. By default in self.run_dir,
-        or in 'directory' if provided.
-        """
-        if directory is None:
-            directory = self.run_dir
-        figure.savefig(os.path.join(directory, filename), bbox_inches='tight')
-
-    def should_log(self):
-        return SHOULD_LOG
+        assert experiment_name
+        
+        # Directory containing all the executions for this experiment "experimentX"
+        self.base_dir = create_subdirectory(name=experiment_name, parent=LOGS_PATH)
+        # Directory containing a specific run of the experiment (timestamped)
+        self.run_dir = create_subdirectory(parent=self.base_dir, timestamped=True)
+        # Directory containing the plots for the experiment
+        self.plot_directory = create_subdirectory(name="Plots", parent=self.run_dir)
+        
+        # Transition probabilities
+        self.transition_probabilities = TRANSITION_PROBABILITIES
+        
+        # Number of experiments per configuration
+        self.num_experiments_per_config = NUM_EXPERIMENTS_PER_CONFIG
 
     def run_experiment(self):
         raise NotImplementedError("Subclasses must implement run_experiment()")

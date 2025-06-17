@@ -1,8 +1,217 @@
-# src/experiments/utils/plotters.py
-import matplotlib.pyplot as plt
+# src/experiments/utils/plotter.py
+import os
 import numpy as np
-from src.config import SHOULD_PLOT
+import matplotlib.pyplot as plt
+from src.experiments.utils.computing import bucket
+from src.experiments.config import SHOULD_SAVE_PLOT, SHOULD_SHOW_PLOT
 
+def show_plot():
+    if SHOULD_SHOW_PLOT:
+        plt.show()
+
+def save_plot(*, figure, filename, directory):
+    """
+    Save `figure` to `directory/filename` if saving is enabled.
+    """
+    if SHOULD_SAVE_PLOT:
+        if not filename.endswith('.png'): 
+            filename += '.png'
+        os.makedirs(directory, exist_ok=True)
+        figure.savefig(os.path.join(directory, filename), bbox_inches='tight')
+
+def plot_series(
+    *,
+    x,
+    ys,
+    labels=None,
+    title=None,
+    xlabel=None,
+    ylabel=None,
+    log_y=False,
+    filename,
+    directory,
+):
+    """
+    Plot multiple series on a single figure, with optional saving & display.
+
+    Parameters:
+    - x: sequence of x values
+    - ys: list of sequences of y values (each same length as x)
+    - labels: optional list of labels for each series (for legend)
+    - title: optional plot title
+    - xlabel, ylabel: optional axis labels
+    - log_y: bool, if True sets y-axis to log scale
+    - filename: base filename (no extension needed)
+    - directory: path to save the figure
+    """
+    fig, ax = plt.subplots()
+
+    # plot each series
+    for i, y in enumerate(ys):
+        lbl = labels[i] if labels and i < len(labels) else None
+        ax.plot(x, y, marker='o', label=lbl)
+
+    # titles and labels
+    if title:    ax.set_title(title)
+    if xlabel:   ax.set_xlabel(xlabel)
+    if ylabel:   ax.set_ylabel(ylabel)
+    if log_y:    ax.set_yscale('log')
+
+    # force all x values to appear
+    ax.set_xticks(x)
+
+    # add gridlines at every major tick
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+
+    # legend if needed
+    if labels: ax.legend()
+
+    plt.tight_layout()
+
+    # save & show
+    save_plot(figure=fig, filename=filename, directory=directory)
+    show_plot()
+
+
+def plot_heatmap(
+    *,
+    x, y,
+    title=None,
+    xlabel=None,
+    ylabel=None,
+    hexbin=False,
+    gridsize=30,
+    cmap='Reds',
+    bins_x=None,
+    bins_y=None,
+    class_labels_x=None,
+    class_labels_y=None,
+    filename,
+    directory,
+):
+    """
+    Plot a heatmap comparing two metrics, in continuous (hexbin) or
+    categorical modes, with optional saving & display.
+
+    Parameters:
+    - x, y: 1D arrays of the same length. 
+    - hexbin: if True, use hexagonal binning (continuous density).
+    - gridsize, cmap: hexbin options.
+    - bins_x, bins_y: lists of bin edges for categorical mode.
+    - class_labels_x, class_labels_y: labels for categorical ticks.
+    - filename: base filename for saving.
+    - directory: directory to save the figure (if SHOULD_SAVE_PLOT).
+    
+    """
+    fig, ax = plt.subplots()
+
+    if hexbin:
+        hb = ax.hexbin(x, y, gridsize=gridsize, cmap=cmap)
+        cb = fig.colorbar(hb, ax=ax)
+        cb.set_label('Frecuencia')
+
+    else:
+        if bins_x is None or bins_y is None:
+            raise ValueError("Provide bins_x and bins_y for categorical mode")
+        H, xedges, yedges = np.histogram2d(x, y, bins=[bins_x, bins_y])
+        mesh = ax.pcolormesh(xedges, yedges, H.T, cmap=cmap)
+        cb = fig.colorbar(mesh, ax=ax)
+        cb.set_label('Frecuencia')
+
+        # annotate & set ticks
+        for i in range(len(bins_x)-1):
+            for j in range(len(bins_y)-1):
+                cnt = int(H[i,j])
+                cx = (xedges[i] + xedges[i+1]) / 2
+                cy = (yedges[j] + yedges[j+1]) / 2
+                ax.text(cx, cy, str(cnt), ha='center', va='center')
+        xt = (xedges[:-1] + xedges[1:]) / 2
+        yt = (yedges[:-1] + yedges[1:]) / 2
+        ax.set_xticks(xt)
+        ax.set_yticks(yt)
+        if class_labels_x:
+            ax.set_xticklabels(class_labels_x)
+        if class_labels_y:
+            ax.set_yticklabels(class_labels_y)
+
+    # titles and labels
+    if title:  ax.set_title(title)
+    if xlabel: ax.set_xlabel(xlabel)
+    if ylabel: ax.set_ylabel(ylabel)
+
+    plt.tight_layout()
+
+    # Show and save
+    save_plot(figure=fig, filename=filename, directory=directory)
+    show_plot()
+        
+def plot_histogram(
+    *,
+    x,
+    ys,
+    labels=None,
+    colors=None,
+    width_factor=0.8,
+    title=None,
+    xlabel=None,
+    ylabel=None,
+    filename,
+    directory,
+):
+    """
+    Plot one or more bar‐series at positions x, with dynamic spacing.
+
+    - x: sequence of numeric positions
+    - ys: list of sequences of heights (each same length as x)
+    - width_factor: fraction of the minimal x‐spacing to use for bar‐group width
+    (e.g. 0.8 leaves 20% gaps; must be in (0,1)).
+    """
+
+    x = np.array(x)
+    n_series = len(ys)
+
+    # Figure out the minimal horizontal gap between x‐values
+    if len(x) > 1:
+        xs = np.sort(x)
+        min_sep = np.min(np.diff(xs))
+    else:
+        min_sep = 1.0
+
+    # Set the total group width as that minimal gap scaled
+    group_w = min_sep * width_factor
+
+    # Derive per‐series bar widths & offsets
+    if n_series > 1:
+        single_w = group_w / n_series
+        offsets  = (np.arange(n_series) - (n_series-1)/2) * single_w
+    else:
+        single_w = group_w
+        offsets  = [0]
+
+    # Plotting
+    fig, ax = plt.subplots()
+    for i, y in enumerate(ys):
+        xi = x + offsets[i]
+        ax.bar(
+            xi,
+            y,
+            width=single_w * 0.9,                        # tiny inner gap
+            color=(colors[i] if colors else None),
+            label=(labels[i] if labels else None)
+        )
+
+    ax.set_xticks(x)
+    if labels:
+        ax.legend()
+    if title:  ax.set_title(title)
+    if xlabel: ax.set_xlabel(xlabel)
+    if ylabel: ax.set_ylabel(ylabel)
+    plt.tight_layout()
+
+    # Show and save
+    save_plot(figure=fig, filename=filename, directory=directory) 
+    show_plot()
+    
 # ------------------------
 # Experiment 1
 # ------------------------
@@ -25,7 +234,7 @@ def plot_probabilities_vs_metrics(probabilities, eq_imp_values, eq_sub_values, e
     
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 def plot_equanimity_vs_entanglement_heatmap(equanimity_values, entanglement_values, bins=20, save_path=None):
@@ -41,7 +250,7 @@ def plot_equanimity_vs_entanglement_heatmap(equanimity_values, entanglement_valu
     
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 # ------------------------
@@ -70,7 +279,7 @@ def plot_frequency_histogram(grouped_freq, title="Frecuencia de funciones por ta
     
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 def plot_probabilities_vs_metrics_difference(probabilities, eq_imp_diff, eq_sub_diff, eq_sub_norm_diff, ent_diff, save_path=None):
@@ -92,7 +301,7 @@ def plot_probabilities_vs_metrics_difference(probabilities, eq_imp_diff, eq_sub_
     
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 def plot_metrics_comparison_vs_probability(probabilities, 
@@ -170,7 +379,7 @@ def plot_metrics_comparison_vs_probability(probabilities,
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 
@@ -190,7 +399,7 @@ def plot_complexity_vs_probability(trans_probs, avg_terms, avg_literals, save_pa
     plt.grid(True)
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 def plot_terms_literals_freqs_histogram(terms_list, literals_list, n_bits, title, save_path=None):
@@ -228,7 +437,7 @@ def plot_terms_literals_freqs_histogram(terms_list, literals_list, n_bits, title
     fig.suptitle(f'Distribución de la complejidad en funciones mínimas ({n_bits} bits)')
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT:
+    if SHOULD_SHOW_PLOT:
         plt.show()
 
 def plot_random_vs_tm_comparison(results_by_bits, save_path=None):
@@ -306,7 +515,7 @@ def plot_random_vs_tm_comparison(results_by_bits, save_path=None):
 
     fig.tight_layout()
     if save_path: plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT: plt.show()
+    if SHOULD_SHOW_PLOT: plt.show()
 
 def plot_curve_with_max_line(x_values, y_values, max_level, title, xlabel, ylabel, save_path=None):
     plt.figure(figsize=(10, 6))
@@ -326,7 +535,7 @@ def plot_curve_with_max_line(x_values, y_values, max_level, title, xlabel, ylabe
     plt.legend()
 
     if save_path: plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT: plt.show()
+    if SHOULD_SHOW_PLOT: plt.show()
 
 
 def plot_bucket_histogram(sequence, classes, title, xlabel, ylabel, save_path=None):
@@ -361,7 +570,7 @@ def plot_bucket_histogram(sequence, classes, title, xlabel, ylabel, save_path=No
         plt.text(i, count, str(count), ha='center', va='bottom', fontsize=9)
 
     if save_path: plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT: plt.show()
+    if SHOULD_SHOW_PLOT: plt.show()
 
 
 def plot_length_vs_complexity_heatmap(steps, complexities, classes_info, save_path=None):
@@ -411,4 +620,94 @@ def plot_length_vs_complexity_heatmap(steps, complexities, classes_info, save_pa
     plt.title("Heatmap: Step Length vs Complexity")
 
     if save_path: plt.savefig(save_path, bbox_inches='tight')
-    if SHOULD_PLOT: plt.show()
+    if SHOULD_SHOW_PLOT: plt.show()
+    
+    
+# ---------------------------------------------
+# Experiment 6
+# ---------------------------------------------
+
+def plot_avg_lengths(metrics, cfg_key, hf_values, output_dir):
+    y = [metrics[cfg_key][hf]['avg_lengths'] for hf in hf_values]
+    plt.figure()
+    plt.plot(hf_values, y, marker='o')
+    plt.title('Longitud media vs Fracción de paro')
+    plt.xlabel('Fracción de paro')
+    plt.ylabel('Longitud media de ejecución')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "longitud_media_vs_fraccion_paro.png"))
+    plt.close()
+
+def plot_distribution(metrics, cfg_key, hf_values, bounds, 
+                      metric_name, title, ylabel, filename, labels, output_dir):
+    counts = np.array([
+        bucket(metrics[cfg_key][hf][metric_name], bounds)
+        for hf in hf_values
+    ]).T
+    plt.figure()
+    bottom = np.zeros(len(hf_values))
+    for i, lab in enumerate(labels):
+        plt.bar(hf_values, counts[i], bottom=bottom, label=lab)
+        bottom += counts[i]
+    plt.title(title)
+    plt.xlabel('Fracción de paro')
+    plt.ylabel(ylabel)
+    plt.legend(title='Categorías')
+    plt.savefig(os.path.join(output_dir, filename))
+    plt.close()
+
+def plot_experiment6_results(metrics, configs, experiment):
+    for config in configs:
+        cfg_key = tuple(sorted(config.items()))
+        config_label = "_".join(f"{k}{v}" for k,v in cfg_key)
+        cfg_dir = experiment.create_config_subdir(config_label)
+
+        hf_values = sorted(metrics[cfg_key].keys())
+
+        # 1) average length
+        plot_avg_lengths(metrics, cfg_key, hf_values, cfg_dir)
+
+        # 2) distribution of lengths
+        all_lengths = [l for hf in hf_values
+                          for l in metrics[cfg_key][hf]['lengths']]
+        lo_len, hi_len = np.quantile(all_lengths, [1/3, 2/3])
+        plot_distribution(
+            metrics, cfg_key, hf_values,
+            (lo_len, hi_len),
+            metric_name='lengths',
+            title='Distribución de longitudes por fracción de paro',
+            ylabel='Número de máquinas',
+            filename='dist_longitudes.png',
+            labels=['Corto','Medio','Largo'],
+            output_dir=cfg_dir
+        )
+
+        # 3a) complexity in literals
+        all_lits = [lit for hf in hf_values 
+                         for lit in metrics[cfg_key][hf]['dnf_lits']]
+        lo_lit, hi_lit = np.quantile(all_lits, [1/3, 2/3])
+        plot_distribution(
+            metrics, cfg_key, hf_values,
+            (lo_lit, hi_lit),
+            metric_name='dnf_lits',
+            title='Distribución de complejidad (literales) por fracción de paro',
+            ylabel='Número de máquinas',
+            filename='dist_complejidad_literales.png',
+            labels=['Fácil','Moderada','Difícil'],
+            output_dir=cfg_dir
+        )
+
+        # 3b) complexity in terms
+        all_terms = [t for hf in hf_values 
+                          for t in metrics[cfg_key][hf]['dnf_terms']]
+        lo_term, hi_term = np.quantile(all_terms, [1/3, 2/3])
+        plot_distribution(
+            metrics, cfg_key, hf_values,
+            (lo_term, hi_term),
+            metric_name='dnf_terms',
+            title='Distribución de complejidad (términos) por fracción de paro',
+            ylabel='Número de máquinas',
+            filename='dist_complejidad_terminos.png',
+            labels=['Fácil','Moderada','Difícil'],
+            output_dir=cfg_dir
+        )

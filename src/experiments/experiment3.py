@@ -8,9 +8,9 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-import src.config as config
-from src.experiments.base_experiment import BaseExperiment
-from src.experiments.utils.plotters import (
+import src.experiments.config as config
+from src.experiments.base_experiment import Experiment
+from src.experiments.utils.plotter import (
     plot_probabilities_vs_metrics,
     plot_equanimity_vs_entanglement_heatmap,
     plot_probabilities_vs_metrics_difference,
@@ -97,7 +97,7 @@ def aggregate_callback(metrics_list):
     }
 
 
-class Experiment3(BaseExperiment):
+class Experiment3(Experiment):
     """
     Compares complexities (equanimity, entanglement) of the Turing Machine’s
     full state vs. tape-only state, under varying transition probabilities.
@@ -116,7 +116,7 @@ class Experiment3(BaseExperiment):
 
         for cfg in self.configs:
             config_label = f"tape{cfg['tape_bits']}_head{cfg['head_bits']}_state{cfg['state_bits']}"
-            config_dir = self.create_config_subdir(config_label)
+            config_dir = self.create_subdirectory(config_label)
 
             # Collect metrics
             results = self.run_and_collect(

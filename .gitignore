@@ -3,3 +3,6 @@ __pycache__
 dataset_n5_10_puertas.txt
 logs
 external
+.flake8
+.vscode
+.gitignore

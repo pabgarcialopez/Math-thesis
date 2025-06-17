@@ -1,3 +1,11 @@
+from math import log2
+
+def get_N(f):
+    size = len(f)
+    if size == 0 or (size & (size - 1)) != 0:
+        raise ValueError("Length of f must be a power of two")
+    return int(log2(size))
+
 def create_map_truth_table(TT, x, depth, f):
     if depth == len(x):
         TT[tuple(x)] = f[len(TT)]
@@ -47,7 +55,10 @@ def entanglement_recursive(subset, C, index, N, TT):
         subset.pop()
     return ent
 
-def entanglement(f, N):
+def entanglement(f):
+    
+    N = get_N(f)
+    
     TT = {}
     x = [0] * N
     create_map_truth_table(TT, x, 0, f)

@@ -1,5 +1,11 @@
 from collections import defaultdict
-from math import factorial, pow
+from math import factorial, pow, log2
+
+def get_N(f):
+    size = len(f)
+    if size == 0 or (size & (size - 1)) != 0:
+        raise ValueError("Length of f must be a power of two")
+    return int(log2(size))
 
 def number_of_subsets(k: int, N: int) -> int:
     prod = 1
@@ -26,7 +32,10 @@ def truth_table(x, index, f, pos, count, N):
         x[N - 1 - index] = index + N
         truth_table(x, index - 1, f, pos, count, N)
 
-def equanimity_subsets_normalized(f, N):
+def equanimity_subsets_normalized(f):
+    
+    N = get_N(f)
+    
     x = [0] * N
     v_count = [defaultdict(int) for _ in range(N + 1)]
     pos = [0]
@@ -42,7 +51,10 @@ def equanimity_subsets_normalized(f, N):
         eq += variance / pow(2, 2 * (N - k - 1))
     return 1 - eq / N
 
-def equanimity_subsets(f, N):
+def equanimity_subsets(f):
+    
+    N = get_N(f)
+    
     x = [0] * N
     v_count = [defaultdict(int) for _ in range(N + 1)]
     pos = [0]
@@ -58,7 +70,10 @@ def equanimity_subsets(f, N):
         eq += variance
     return -eq
 
-def equanimity_importance(f, N):
+def equanimity_importance(f):
+    
+    N = get_N(f)
+    
     I = 0
     for i in range(1, N + 1):
         for j in range(0, int(pow(2, N)), int(pow(2, i))):

@@ -12,13 +12,13 @@ import glob
 import json
 from collections import defaultdict
 
-from src.config import LOGS_PATH, DATA_PATH
-from src.experiments.base_experiment import BaseExperiment
+from src.experiments.config import LOGS_PATH, DATA_PATH
+from src.experiments.base_experiment import Experiment
 from src.experiments.utils.logger import save_execution_log
-from src.experiments.utils.plotters import plot_frequency_histogram
+from src.experiments.utils.plotter import plot_frequency_histogram
 from src.tm.utils import get_projected_history_function
 
-class Experiment2(BaseExperiment):
+class Experiment2(Experiment):
     """
     This experiment analyzes logs produced by Experiment1, collecting the "projected functions"
     and comparing them to a dataset of 5-bit boolean functions. It then plots and logs the
