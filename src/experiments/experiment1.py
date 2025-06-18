@@ -1,7 +1,7 @@
 # src/experiments/experiment1.py
 
-import os
 from tqdm import tqdm
+import time
 from collections import defaultdict
 
 from src.experiments.base_experiment import Experiment
@@ -27,8 +27,11 @@ class Experiment1(Experiment):
         self.aggregated_results = {}
 
     def collect_results_for_TM(self, tm, config_label, transition_probability):
-        # compute all the metrics once
-        history_function = get_history_function(tm)
+       
+        serialized_tm = serialize_turing_machine(tm)
+        # Save history function as a vector for the metrics computation
+        history_function = serialized_tm['history_function']
+        
         ent = entanglement(history_function)
         eq_imp = equanimity_importance(history_function)
         eq_sub = equanimity_subsets(history_function)
@@ -60,7 +63,7 @@ class Experiment1(Experiment):
         slot = tp_map[transition_probability]
 
         # Append data
-        slot['turing_machines'].append(serialize_turing_machine(tm))
+        slot['turing_machines'].append(serialized_tm)
         slot['entanglements'].append(ent)
         slot['equanimities']['importance'].append(eq_imp)
         slot['equanimities']['subsets'].append(eq_sub)
@@ -379,11 +382,14 @@ class Experiment1(Experiment):
         )
           
     def run_experiment(self):
+        config_times = []
+        global_time = time.time()
+        
         log_message(f"Running Experiment1. Logs in: {self.run_dir}")
-                
         num_machines = int(self.num_experiments_per_config / len(self.transition_probabilities))
         
         for i, config in enumerate(tqdm(self.configs, desc='Running configs')):
+            start_time = time.time()
             config_label = f"C{i + 1}"
             config_dir_name = f"{config_label}_T{config['tape_bits']}H{config['head_bits']}S{config['state_bits']}"
             config_dir = create_subdirectory(name=config_dir_name, parent=self.run_dir)
@@ -408,32 +414,41 @@ class Experiment1(Experiment):
                 
                 # Log results
                 self.log_turing_machines(config_label, transition_probability, transition_probability_dir)
+            config_times.append(time.time() - start_time)
                 
         # Aggregate results
         self.aggregate_results()
         
+        global_time = time.time() - global_time
+        
         # Log results and aggregated
-        self.results.append(f"num_experiments_per_config = {self.num_experiments_per_config}")
-        self.results.append(f"num_machines_per_config_per_tp = {num_machines}")
         self.log_results(self.results, filename="results.json", directory=self.run_dir)
         self.log_results(self.aggregated_results, filename="aggregated_results.json", directory=self.run_dir)
+        self.log_results({
+            "configs": self.configs,
+            "config_times": config_times,
+            "global_time": global_time,
+            "num_experiments_per_config": self.num_experiments_per_config,
+            "num_machines_per_config_per_tp": num_machines,
+        }, filename="experiment_metadata.json", directory=self.run_dir)
         
         # Plot results
         self.plot_results()
 
 def run_experiment():
     exp = Experiment1(configs=[
-            {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
-            
-            {"tape_bits": 1, "head_bits": 0, "state_bits": 2},
-            {"tape_bits": 2, "head_bits": 1, "state_bits": 2},
-            {"tape_bits": 4, "head_bits": 2, "state_bits": 2},
+            # {"tape_bits": 1, "head_bits": 0, "state_bits": 2},
+            # {"tape_bits": 2, "head_bits": 1, "state_bits": 2},
+            # {"tape_bits": 4, "head_bits": 2, "state_bits": 2},
             {"tape_bits": 8, "head_bits": 3, "state_bits": 2},
 
-            {"tape_bits": 1, "head_bits": 0, "state_bits": 3},
-            {"tape_bits": 2, "head_bits": 1, "state_bits": 3},
-            {"tape_bits": 4, "head_bits": 2, "state_bits": 3},
-            {"tape_bits": 8, "head_bits": 3, "state_bits": 3},
+            # {"tape_bits": 1, "head_bits": 0, "state_bits": 3},
+            # {"tape_bits": 2, "head_bits": 1, "state_bits": 3},
+            # {"tape_bits": 4, "head_bits": 2, "state_bits": 3},
+            # {"tape_bits": 8, "head_bits": 3, "state_bits": 3},
+            
+            
+            # {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
         ])
     
     exp.run_experiment()

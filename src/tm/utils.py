@@ -172,6 +172,9 @@ def get_projected_history_function(config_history, projection):
         idx = int(projected_config, 2)
         projected_history_func[idx] = 1
 
+    # Need to reverse it because metrics expect
+    # that the entry 0 corresponds to 1...1 and
+    # the last entry corresponds to 0...0.
     projected_history_func.reverse()
     return projected_history_func
 
@@ -191,11 +194,10 @@ def get_history_function(turing_machine):
 
 def serialize_turing_machine(tm):
     return {
-        # "tape_bits": tm.tape_bits,
-        # "head_bits": tm.head_bits,
-        # "state_bits": tm.state_bits,
-        # "transition_probability": tm.trans_prob,
+        "config": tm.config,
+        "binary_input": tm.binary_input,
         "num_steps": tm.num_steps,
         "outcome": tm.outcome,
+        "history_function": get_history_function(tm),
         "config_history": list(tm.config_history)
     }

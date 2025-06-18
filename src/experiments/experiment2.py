@@ -7,216 +7,171 @@
 
 # src/experiments/experiment2.py
 
-import os
-import glob
-import json
 from collections import defaultdict
-
-from src.experiments.config import LOGS_PATH, DATA_PATH
+from pathlib import Path
+from src.experiments.config import DATASET_PATH, LOGS_PATH
 from src.experiments.base_experiment import Experiment
-from src.experiments.utils.logger import save_execution_log
-from src.experiments.utils.plotter import plot_frequency_histogram
-from src.tm.utils import get_projected_history_function
+from src.experiments.utils.loader import list_dirs, load_json
+from src.experiments.utils.logger import log_message, log_data
+from src.experiments.utils.plotter import plot_histogram
 
 class Experiment2(Experiment):
     """
     This experiment analyzes logs produced by Experiment1, collecting the "projected functions"
-    and comparing them to a dataset of 5-bit boolean functions. It then plots and logs the
-    representation analysis (histogram, etc.).
+    and comparing them to a dataset of 5-bit boolean functions.
     """
 
-    def __init__(self):
-        super().__init__("experiment2")
-        self.experiment1_logs_path = os.path.join(LOGS_PATH, "experiment1")
-        self.dataset_path = os.path.join(DATA_PATH, "dataset_n5_10_puertas.txt")
-
-    def run_experiment(self):
-        self.log_message(f"Experiment2 analyzing logs from: {self.experiment1_logs_path}")
-
-        # 1) Collect projected functions from experiment1 logs
-        freq_dict = self.collect_projected_functions(self.experiment1_logs_path)
-        total_experiments = sum(freq_dict.values())
-        distinct_functions = len(freq_dict)
-        self.log_message(
-            f"Obtained {distinct_functions} distinct projected functions "
-            f"from {total_experiments} experiments."
-        )
-
-        # 2) Load dataset of known functions
-        dataset = self.load_dataset(self.dataset_path)
-        self.log_message(f"Loaded dataset with {len(dataset)} functions.")
-
-        # 3) Analyze how frequently each function size appears
-        grouped_freq = self.analyze_representation(freq_dict, dataset)
-
-        # 4) Calculate ratios
-        ratio_details, summary_data = self.calculate_ratios(freq_dict, dataset, grouped_freq)
-        self.log_message("\nUnique Ratios (unique functions in logs / number of functions in dataset):")
-        for size, details in sorted(ratio_details.items(), key=lambda x: (x[0] if isinstance(x[0], int) else 9999)):
-            if details["ratio"] is not None:
-                self.log_message(
-                    f"Size {size}: {details['unique_count']} / {details['dataset_count']} "
-                    f"= {details['ratio']*100:.8f}%"
-                )
-            else:
-                self.log_message(f"Size {size}: {details['unique_count']} (cannot compute ratio)")
-
-        # 5) Save final summary log if desired
-        if self.should_log():
-            self.log_data(summary_data, filename="experiment2_summary.json")
-            self.log_message("Summary data saved as experiment2_summary.json")
-
-        # 6) Plot a histogram of circuit sizes
-        histogram_path = os.path.join(self.run_dir, "final_histogram.png")
-        plot_frequency_histogram(grouped_freq, save_path=histogram_path)
-        self.log_message(f"Final histogram saved to: {histogram_path}")
-
-        self.log_message("Experiment 2 analysis completed.")
-
-    # --------------------------------------------------------------------------
-    # Helper Methods
-    # --------------------------------------------------------------------------
-
-    def load_dataset(self, filepath):
-        """
-        Loads a dataset of functions from a text file.
-        Each line: <function_code> <circuit_size>
-        """
+    def __init__(self, timestamp):
+        super().__init__("Experiment2")
+        self.timestamp = timestamp
+        self.dataset = self.load_dataset(DATASET_PATH)
+        self.projection = None
+        
+    def load_dataset(self, dataset_path):
+        log_message('Loading dataset...')
         dataset = {}
         try:
-            with open(filepath, 'r') as f:
+            with open(dataset_path, 'r') as f:
                 for line in f:
                     line = line.strip()
-                    if not line:
-                        continue
+                    if not line: continue
                     parts = line.split()
-                    if len(parts) < 2:
-                        continue
-                    func_code = int(parts[0])
+                    if len(parts) < 2: continue
+                    function_code = int(parts[0])
                     circuit_size = int(parts[1])
-                    dataset[func_code] = circuit_size
+                    dataset[function_code] = circuit_size
         except Exception as e:
-            self.log_message(f"Error loading dataset: {e}", prefix="[WARNING]")
+            log_message(f"Error loading dataset: {e}", prefix="[ERROR]")
         return dataset
-
-    def load_json_logs(self, log_directory):
+        
+    def _get_history_functions_from_file(self, file_path):
+        history_functions = []
+        
+        tm_json = load_json(file_path)
+        for tm in tm_json:
+            hf = tm['history_function']
+            hf = ''.join(str(int(b)) for b in hf)
+            history_functions.append(hf)
+            
+        # Save what the projection on to the tape needs to be
+        self.projection = range(tm_json[0]['config']['tape_bits'])
+        
+        return history_functions            
+        
+    def _get_history_functions_from_run(self, run_dir, filename):
+        history_functions = []
+        for cfg in list_dirs(run_dir):
+            for prob in list_dirs(cfg):
+                file_path = prob / filename
+                new_history_functions = self._get_history_functions_from_file(file_path)
+                history_functions.extend(new_history_functions)
+        return history_functions
+    
+    def get_history_functions(self, *, timestamp, filename):
         """
-        Recursively loads all .json files from the given directory.
-        Returns a list of dictionaries (the parsed JSON).
+        Return a list of all (possibly repeated) history functions collected from LOGS_PATH/experiment1/<timestamp>,
+        in the filename specified.
         """
-        logs = []
-        if not os.path.exists(log_directory):
-            return logs
-        pattern = os.path.join(log_directory, '**', '*.json')
-        files = glob.glob(pattern, recursive=True)
-        for filepath in files:
-            try:
-                with open(filepath, 'r') as f:
-                    data = json.load(f)
-                    logs.append(data)
-            except Exception as e:
-                self.log_message(f"Error reading {filepath}: {e}", prefix="[WARNING]")
-        return logs
+        run_dir = Path(LOGS_PATH) / 'experiment1' / timestamp
+        return self._get_history_functions_from_run(
+            run_dir=run_dir, 
+            filename=filename, 
+        )
+        
+    def project_history_functions(self, history_functions):
+        
+        def project(string):
+            projected_string = ""
+            for index in self.projection:
+                projected_string += string[index]
+            return projected_string
+    
+        return [project(hf) for hf in history_functions]
+                
+    def code_history_functions(self, history_functions):
+        return [int(hf, 2) for hf in history_functions]            
 
-    def collect_projected_functions(self, log_directory):
-        """
-        For each JSON log, extracts the 'projected_function' if present,
-        or computes it from 'config_history' if not. Returns a dict {func_val -> count}.
-        """
-        from collections import defaultdict
-        freq_dict = defaultdict(int)
-        logs = self.load_json_logs(log_directory)
-        for log in logs:
-            if "turing_machine" not in log: continue
-            config_history = log['turing_machine']['config_history']
-            tape_length = log['turing_machine']['tape_bits']
-            assert tape_length == 5, "Projection must be onto 5 bits for experiment 2"
-            # Get the tape projection of the turing machine
-            projected_history_func = get_projected_history_function(config_history, projection=range(tape_length))
-            key = int("".join(map(str, projected_history_func)), 2)
-            freq_dict[key] += 1
-        return dict(freq_dict)
+    def run_experiment(self):
+        log_message(f"Experiment2 analyzing logs from experiment1")
 
-    def analyze_representation(self, freq_dict, dataset):
-        """
-        Groups freq_dict by circuit size using the dataset. 
-        Returns dict {circuit_size -> count}.
-        """
-        from collections import defaultdict
-        unique_by_size = defaultdict(int)
-        for func in freq_dict.keys():
-            if func in dataset:
-                size = dataset[func]
-                unique_by_size[size] += 1
-            else:
-                unique_by_size["unknown"] += 1
+        # Collect raw history functions (duplicates allowed)
+        history_functions = self.get_history_functions(
+            timestamp=self.timestamp,
+            filename='turing_machines.json',
+        )
 
-        if "unknown" in unique_by_size:
-            self.log_message(
-                f"[WARNING] {unique_by_size['unknown']} functions from logs not found in the dataset."
-            )
-        return dict(unique_by_size)
-
-    def calculate_ratios(self, freq_dict, dataset, grouped_freq):
-        """
-        Calculates ratio of how many unique functions from the logs
-        appear in the dataset, grouped by circuit size.
-        Returns (ratio_details, summary_data).
-        """
-        from collections import defaultdict
-
-        # Build a map of circuit sizes -> set of distinct functions in logs
-        unique_by_size_set = defaultdict(set)
-        for func_val in freq_dict.keys():
-            if func_val in dataset:
-                size = dataset[func_val]
-                unique_by_size_set[size].add(func_val)
-            else:
-                unique_by_size_set["unknown"].add(func_val)
-
-        # Count how many exist in the dataset for each circuit size
-        dataset_counts = defaultdict(int)
-        for func_code, size in dataset.items():
-            dataset_counts[size] += 1
-
-        ratio_details = {}
-        for size, func_set in unique_by_size_set.items():
-            count_unique = len(func_set)
-            dataset_count = dataset_counts.get(size, 0)
-            if isinstance(size, int) and dataset_count > 0:
-                ratio = count_unique / dataset_count
-                ratio_details[size] = {
-                    "unique_count": count_unique,
-                    "dataset_count": dataset_count,
-                    "ratio": ratio
-                }
-            else:
-                ratio_details[size] = {
-                    "unique_count": count_unique,
-                    "dataset_count": dataset_count,
-                    "ratio": None
-                }
-
-        total_experiments = sum(freq_dict.values())
-        distinct_functions = len(freq_dict)
-
-        summary_data = {
-            "total_experiments": total_experiments,
-            "distinct_projected_functions": distinct_functions,
-            "dataset_size": len(dataset),
-            "grouped_frequency": grouped_freq,
-            "unique_by_size": {size: len(func_set) for size, func_set in unique_by_size_set.items()},
-            "dataset_counts": dict(dataset_counts),
-            "unique_ratios": {
-                size: (info["ratio"] if info["ratio"] is not None else "N/A")
-                for size, info in ratio_details.items()
-            }
+        # Deduplicate
+        unique_hfs = set(history_functions)
+        metadata = {
+            'num_history_functions_total':      len(history_functions),
+            'num_history_functions_unique':     len(unique_hfs),
         }
-        return ratio_details, summary_data
+
+        # Project and code the unique ones
+        projected = self.project_history_functions(unique_hfs)
+        coded     = self.code_history_functions(projected)
+
+        # Count per circuit size, and unknowns
+        counts = defaultdict(int)
+        unknown = 0
+        for code in coded:
+            if code in self.dataset: counts[self.dataset[code]] += 1
+            else: unknown += 1
+
+        total_unique = len(coded)
+
+        # 5) Build count & percentage tables
+        unknown_pct = (unknown / total_unique) * 100
+        percentages = {
+            size: (cnt / total_unique) * 100
+            for size, cnt in counts.items()
+        }
+
+        metadata.update({
+            'counts_by_circuit_size':       dict(counts),
+            'percentages_by_circuit_size':  {str(size): pct for size, pct in percentages.items()},
+            'unknown_count':                unknown,
+            'unknown_percentage':           unknown_pct,
+        })
+
+        # Log metadata
+        log_data(
+            data=metadata,
+            filename='experiment_results.json',
+            directory=self.run_dir
+        )
+
+        # Finally, plot the known‐only histogram
+        x = sorted(counts.keys())
+        ys = [[counts[size] for size in x]]
+        plot_histogram(
+            x=x,
+            ys=ys,
+            colors=['green'],
+            title='Conteo de funciones de historial por tamaño mínimo de circuito',
+            xlabel='Tamaño de circuito',
+            ylabel='Número de funciones únicas',
+            filename='circuitos_VS_funciones_historial.png',
+            directory=self.plot_directory,
+        )
+
 
 
 def run_experiment():
-    exp = Experiment2()
+    
+    timestamp = "20250618_122014" # T1H0S2
+    # timestamp = "20250618_122025" # T2H1S2
+    # timestamp = "20250618_122045" # T4H2S2
+    # timestamp = "20250618_122125" # T8H3S2
+    
+    # timestamp = "20250618_??????" # T1H0S3
+    # timestamp = "20250618_??????" # T2H1S3
+    # timestamp = "20250618_??????" # T4H2S3
+    # timestamp = "20250618_??????" # T8H3S3
+    
+    # timestamp = "20250618_??????" # T5H3S2
+    
+    exp = Experiment2(timestamp=timestamp) 
     exp.run_experiment()
 
 if __name__ == "__main__":

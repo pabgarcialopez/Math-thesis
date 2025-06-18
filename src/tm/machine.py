@@ -3,11 +3,13 @@
 class TuringMachine:
     def __init__(self, *, config, binary_input, transition_function):
 
+        self.config = config
         self.tape_bits = config['tape_bits']
         self.head_bits = config['head_bits']
         self.state_bits = config['state_bits']
         
         # Initialize tape
+        self.binary_input = binary_input
         self.tape = list(binary_input)
 
         # Initialize machine's internal info
