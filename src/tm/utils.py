@@ -7,7 +7,7 @@ from src.experiments.config import DEFAULT_TRANSITION_PROBABILITY
 # GENERATORS for the Turing Machine
 # --------------------------------------------------------------------------------------------------
 
-def _generate_turing_machine(*, config, binary_input, transition_function):
+def generate_turing_machine(*, config, binary_input, transition_function):
     return TuringMachine(
             config=config,
             binary_input=binary_input,
@@ -17,7 +17,7 @@ def generate_turing_machines(*, config, binary_inputs=None, transition_probabili
     
     turing_machines = []
     if binary_inputs is None:
-        binary_inputs = [generate_random_input(config['tape_bits']) for _ in range(num_machines)] 
+        binary_inputs = [generate_random_binary_input(config['tape_bits']) for _ in range(num_machines)] 
         
     if transition_probability is None:
         transition_probability = DEFAULT_TRANSITION_PROBABILITY
@@ -31,7 +31,7 @@ def generate_turing_machines(*, config, binary_inputs=None, transition_probabili
         
     for i in range(num_machines):        
         turing_machines.append(
-            _generate_turing_machine(
+            generate_turing_machine(
                 config=config,
                 binary_input=binary_inputs[i],
                 transition_function=transition_functions[i]) 
@@ -39,7 +39,7 @@ def generate_turing_machines(*, config, binary_inputs=None, transition_probabili
         
     return turing_machines
     
-def generate_random_input(tape_length):
+def generate_random_binary_input(tape_length):
     return ''.join(random.choice('01') for _ in range(tape_length))
 
 def generate_random_transitions(*, transition_probability, state_bits):
@@ -58,75 +58,6 @@ def generate_random_transitions(*, transition_probability, state_bits):
                 direction = random.choice(directions)
                 transition_function[(state, symbol)] = (next_state, write_symbol, direction)
     return transition_function
-
-def generate_long_tm_transitions(num_states, halting_fraction=0.1, seed=None):
-    """
-    Genera únicamente el diccionario de transiciones para una TM 
-    que tarda "mucho" en parar, con estados que ocasionalmente llevan al estado de aceptación o parada.
-
-    Parámetros:
-    - num_states: total de estados (el último, num_states-1, es el estado de aceptación)
-    - halting_fraction: fracción de estados no finales que pueden transicionar al estado de aceptación
-    - seed: semilla para reproducibilidad (opcional)
-
-    Devuelve:
-    - transitions: dict con clave (state, symbol) y valor (write_symbol, move_dir, next_state). El estado de aceptación
-    no define salidas. Cuando se llega a el, la ejecución de la MT termina.
-    """
-    if seed is not None:
-        random.seed(seed)
-
-    accept_state = num_states - 1
-    non_final = list(range(num_states - 1))
-
-    # Seleccionamos un subconjunto de estados con capacidad de halting
-    k = max(1, int(len(non_final) * halting_fraction))
-    halting_states = set(random.sample(non_final, k))
-
-    transitions = {}
-
-    # Creamos un orden aleatorio de no-final para construir un "ciclo"
-    cycle = non_final[:]  
-    random.shuffle(cycle)
-
-    for i, s in enumerate(non_final):
-        if s in halting_states:
-            # Elegimos aleatoriamente el símbolo que disparará el halting
-            halting_symbol = random.choice([0, 1])
-            other_symbol = 1 - halting_symbol
-
-            # Transición rara al estado de aceptación con movimiento aleatorio
-            move_halting = random.choice(['L', 'R'])
-            transitions[(s, halting_symbol)] = (halting_symbol, move_halting, accept_state)
-
-            # Para el otro símbolo, seguimos en el ciclo de no-final
-            write = random.choice([0, 1])
-            move = random.choice(['L', 'R'])
-            next_state = cycle[(i + 1) % len(cycle)]
-            transitions[(s, other_symbol)] = (write, move, next_state)
-        else:
-            # Estados sin transición al estado de aceptación
-            for sym in [0, 1]:
-                write = random.choice([0, 1])
-                move = random.choice(['L', 'R'])
-                # Para uno usamos el siguiente en ciclo, para el otro uno aleatorio
-                if sym == 0: next_state = cycle[(i + 1) % len(cycle)]  # noqa: E701
-                else: next_state = random.choice(non_final)  # noqa: E701
-                transitions[(s, sym)] = (write, move, next_state)
-
-    return transitions
-
-# Specific to experiment 6
-def generate_turing_machines_with_transitions(num_machines, config, halting_fraction):
-    num_states = 2 ** config['state_bits']
-    transition_functions = [generate_long_tm_transitions(num_states, halting_fraction) for _ in range(num_machines)]
-    turing_machines = []
-    for transition_function in transition_functions:
-        turing_machine = generate_turing_machine(config=config, transition_function=transition_function)
-        turing_machines.append(turing_machine)
-    return turing_machines
-
-
 
 # --------------------------------------------------------------------------------------------------
 # GETTERS for the Turing Machine
@@ -201,3 +132,7 @@ def serialize_turing_machine(tm):
         "history_function": get_history_function(tm),
         "config_history": list(tm.config_history)
     }
+    
+    
+# Specific to experiment 6
+    
