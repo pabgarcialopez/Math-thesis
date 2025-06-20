@@ -2,7 +2,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from src.experiments.utils.computing import bucket
 from src.experiments.config import SHOULD_SAVE_PLOT, SHOULD_SHOW_PLOT
 
 def show_plot():
@@ -49,7 +48,10 @@ def plot_series(
     # plot each series
     for i, y in enumerate(ys):
         lbl = labels[i] if labels and i < len(labels) else None
-        ax.plot(x, y, marker='o', label=lbl)
+        # filtrar x,y para eliminar los y==None
+        xs = [xi for xi, yi in zip(x, y) if yi is not None]
+        ys_f = [yi for yi in y            if yi is not None]
+        ax.plot(xs, ys_f, marker='o', label=lbl)
 
     # titles and labels
     if title:    ax.set_title(title)

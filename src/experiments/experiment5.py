@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 import numpy as np
 
 from src.experiments.base_experiment import Experiment
@@ -10,21 +11,22 @@ from src.experiments.utils.computing import equal_width_bins
 
 class Experiment5(Experiment):
     """
-    Classify TM runs into 3×3 bins of (steps vs. literals) and
-    plot a categorical heatmap for ONE timestamp’s single config.
+    Classify TM runs into 3 x 3 bins of (steps vs. literals) and
+    plot a categorical heatmap for ONE timestamp's single config.
     """
     def __init__(self, timestamp: str):
-        super().__init__("Experiment5")
+        super().__init__("experiment5")
         self.timestamp = timestamp
-        # locate the single config directory under experiment1/<timestamp>/
+        # Locate the single config directory under experiment1/<timestamp>/
         exp1_root = Path(LOGS_PATH) / "experiment1" / timestamp
         if not exp1_root.exists():
             raise FileNotFoundError(f"Experiment1 run not found: {exp1_root}")
-        cfg_dirs = [d for d in exp1_root.iterdir() if d.is_dir()]
+        cfg_dirs = sorted(exp1_root.glob("C*_T*"))
         if not cfg_dirs:
-            raise RuntimeError(f"No config subfolder under {exp1_root}")
+            raise RuntimeError(f"No configuration folder matching 'C*_T*' under {exp1_root}")
+        self.cfg_dir = cfg_dirs[0]
         if len(cfg_dirs) > 1:
-            log_message(f"Found multiple configs under {exp1_root}, using first", prefix="[WARNING]")
+            log_message(f"There may be multiple configs under {exp1_root}, using first", prefix="[WARNING]")
         self.cfg_dir = cfg_dirs[0]
 
     def run_experiment(self):
@@ -35,7 +37,7 @@ class Experiment5(Experiment):
         for prob_dir in sorted(self.cfg_dir.glob("prob*")):
             tm_list   = load_json(prob_dir / "turing_machines.json")
             comp_list = load_json(prob_dir / "tm_complexities.json")
-            # assume they align 1:1
+            # They should align 1:1
             for tm, comp in zip(tm_list, comp_list):
                 steps.append(tm["num_steps"])
                 lits.append(comp["literals"])
@@ -53,7 +55,7 @@ class Experiment5(Experiment):
         lit_labels  = ["Fácil", "Moderada", "Difícil"]
 
         # Joint histogram 3×3
-        H, xedges, yedges = np.histogram2d(steps, lits, bins=[bins_steps, bins_lits])
+        H, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_lits])
 
         # Save summary in JSON 
         summary = {
@@ -80,7 +82,7 @@ class Experiment5(Experiment):
         )
 
         # Plot categorical heatmap
-        title = f"Longitud de ejecución vs complejidad (FND) — n = {int(sum(self._extract_config_bits()))} bits"
+        title = f"Longitud de ejecución vs complejidad (n = {int(sum(self._extract_config_bits()))} bits)"
         plot_heatmap(
             x=steps,
             y=lits,
@@ -90,7 +92,7 @@ class Experiment5(Experiment):
             class_labels_x=step_labels,
             class_labels_y=lit_labels,
             title=title,
-            xlabel="Número de pasos de ejecución",
+            xlabel="Longitud de ejecución",
             ylabel="Complejidad (literales de la FND)",
             filename="heatmap_length_complexity.png",
             directory=self.plot_directory
@@ -109,7 +111,7 @@ class Experiment5(Experiment):
 
 def run_experiment():
     
-    timestamp = "20250618_122014" # T1H0S2
+    # timestamp = "20250618_122014" # T1H0S2
     # timestamp = "20250618_122025" # T2H1S2
     # timestamp = "20250618_122045" # T4H2S2
     # timestamp = "20250618_122125" # T8H3S2
@@ -119,8 +121,24 @@ def run_experiment():
     # timestamp = "20250618_181456" # T4H2S3
     # timestamp = "20250618_181806" # T8H3S3
     
-    exp = Experiment5(timestamp=timestamp)
-    exp.run_experiment()
+    timestamps = [
+        "20250618_122014", # T1H0S2 3
+        "20250618_122025", # T2H1S2 5
+        "20250618_122045", # T4H2S2 8
+        "20250618_122125", # T8H3S2 13
+
+        "20250618_181419", # T1H0S3 4
+        "20250618_181443", # T2H1S3 6
+        "20250618_181456", # T4H2S3 9
+        "20250618_181806", # T8H3S3 14
+    ]
+    
+    for timestamp in timestamps:
+        exp = Experiment5(timestamp=timestamp)
+        exp.run_experiment()
+        
+        # To force different timestamps
+        time.sleep(3)
 
 
 if __name__ == "__main__":

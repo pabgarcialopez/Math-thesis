@@ -1,5 +1,7 @@
 import random
+import numpy as np
 from math import log2
+
 from pyeda.inter import exprvars, truthtable # type: ignore
 from pyeda.boolalg.minimization import espresso_tts # type: ignore
 
@@ -41,17 +43,6 @@ def measure_minimal_dnf(bool_vector):
             total_literals += 1
     return num_terms, total_literals
 
-def bucket(vals, bounds):
-    """
-    Given a list of numbers `vals` and two thresholds (lo, hi) in `bounds`,
-    returns counts of [ <=lo, (lo, hi], >hi ].
-    """
-    lo, hi = bounds
-    short = sum(1 for v in vals if v <= lo)
-    med   = sum(1 for v in vals if lo < v <= hi)
-    long  = len(vals) - short - med
-    return short, med, long
-
 def equal_width_bins(data, n_bins):
     """
     Given a 1D sequence `data`, return an array of length n_bins+1
@@ -66,11 +57,14 @@ def equal_width_bins(data, n_bins):
 
 import random
 
-def generate_long_tm_transition_function(num_states, halting_fraction=0.1):
+def generate_long_tm_transition_function(
+    num_states: int,
+    halting_fraction: float = 0.1,
+) -> dict:
     """
     Build a transition function designed to make a Turing Machine run for many steps 
     before halting, by wiring most non-final states into a single cycle and only 
-    allowing a small fraction of states to exit to the accept state on one rare symbol.
+    allowing a small fraction of states to exit to the accept state.
 
     Parameters:
     - num_states (int): Total number of states; the last state (num_states-1) is the accept state.
@@ -79,46 +73,43 @@ def generate_long_tm_transition_function(num_states, halting_fraction=0.1):
     Returns:
     - transitions (dict):
         Keys are (state, symbol) pairs. Values are tuples 
-        (write_symbol, move_direction, next_state).
+        (next_state, write_symbol, move_direction).
         The accept state has no outgoing transitions, so reaching it halts the machine.
     """
     accept_state = num_states - 1
     non_final = list(range(accept_state))
 
-    # Choose a small subset of non-final states that can halt
+    # Pick which non-final states can actually halt
     k = max(1, int(len(non_final) * halting_fraction))
     halting_states = set(random.sample(non_final, k))
 
-    transitions = {}
-
-    # Create a random cycle over all non-final states
+    # Build one big cycle through all non-final states
     cycle = non_final[:]
     random.shuffle(cycle)
 
+    transitions = {}
     for i, s in enumerate(non_final):
         if s in halting_states:
-            # Pick one symbol that causes halting
-            halting_symbol = random.choice([0, 1])
-            other_symbol = 1 - halting_symbol
+            # Choose a unique halting symbol for this state
+            halting_symbol = random.choice(['0', '1'])
+            other_symbol = '1' if halting_symbol == '0' else '0'
 
-            # That symbol jumps to accept with random head movement
-            move_halting = random.choice(['L', 'R'])
-            transitions[(s, halting_symbol)] = (halting_symbol, move_halting, accept_state)
+            # Reading h --> jump to accept
+            move_h = random.choice(['L', 'R'])
+            transitions[(s, halting_symbol)] = (accept_state, halting_symbol, move_h)
 
-            # The other symbol continues around the cycle
-            write = random.choice([0, 1])
-            move  = random.choice(['L', 'R'])
+            # Reading o --> cycle.
             next_state = cycle[(i + 1) % len(cycle)]
-            transitions[(s, other_symbol)] = (write, move, next_state)
+            move_o = random.choice(['L', 'R'])
+            write_o = random.choice(['0', '1'])
+            transitions[(s, other_symbol)] = (next_state, write_o, move_o)
+
         else:
-            # States not in halting_states never go to accept
-            for sym in (0, 1):
-                write = random.choice([0, 1])
-                move  = random.choice(['L', 'R'])
-                if sym == 0:
-                    next_state = cycle[(i + 1) % len(cycle)]
-                else:
-                    next_state = random.choice(non_final)
-                transitions[(s, sym)] = (write, move, next_state)
+            # never halting: always follow the cycle, writing the opposite of what was read
+            for sym in ('0', '1'):
+                other_symbol = '1' if sym == '0' else '0'
+                next_state = cycle[(i + 1) % len(cycle)]
+                move = random.choice(['L', 'R'])
+                transitions[(s, sym)] = (next_state, other_symbol, move)
 
     return transitions

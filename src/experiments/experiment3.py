@@ -6,6 +6,7 @@
 
 from pathlib import Path
 
+from src.tm.utils import get_projected_history_function
 from src.experiments.base_experiment import Experiment
 from src.experiments.utils.loader import load_json
 from src.experiments.utils.logger import log_message, log_data
@@ -60,6 +61,7 @@ class Experiment3(Experiment):
         """
         Recompute metrics sobre the tape-projected history function for a given transition probability `tp`.
         """
+        
         # Ubicación de turing_machines.json de Experiment1
         base = Path(LOGS_PATH) / "experiment1" / self.timestamp
         # Unique config_dir
@@ -72,8 +74,8 @@ class Experiment3(Experiment):
         eq_subsets_normalized_values = []
 
         for tm in machines:
-            full_hf = tm["history_function"]
-            proj_hf = [full_hf[i] for i in self.projection] # Tape projection
+            config_history = tm["config_history"]
+            proj_hf = get_projected_history_function(config_history, self.projection)
             # Compute Metrics
             entanglement_values.append(entanglement(proj_hf))
             eq_importance_values.append(equanimity_importance(proj_hf))
@@ -186,7 +188,7 @@ class Experiment3(Experiment):
 
 
 def run_experiment():
-    timestamp = "20250618_122014" # T1H0S2
+    # timestamp = "20250618_122014" # T1H0S2
     # timestamp = "20250618_122025" # T2H1S2
     # timestamp = "20250618_122045" # T4H2S2
     # timestamp = "20250618_122125" # T8H3S2
@@ -195,6 +197,8 @@ def run_experiment():
     # timestamp = "20250618_181443" # T2H1S3
     # timestamp = "20250618_181456" # T4H2S3
     # timestamp = "20250618_181806" # T8H3S3
+    
+    timestamp = "20250619_173223" # T8H3S3
     exp = Experiment3(timestamp=timestamp)
     exp.run_experiment()
 

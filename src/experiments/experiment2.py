@@ -159,7 +159,7 @@ class Experiment2(Experiment):
 
 def run_experiment():
     
-    timestamp = "20250618_122014" # T1H0S2
+    # timestamp = "20250618_122014" # T1H0S2
     # timestamp = "20250618_122025" # T2H1S2
     # timestamp = "20250618_122045" # T4H2S2
     # timestamp = "20250618_122125" # T8H3S2
@@ -169,7 +169,7 @@ def run_experiment():
     # timestamp = "20250618_181456" # T4H2S3
     # timestamp = "20250618_181806" # T8H3S3
     
-    # timestamp = "20250618_??????" # T5H3S2
+    timestamp = "20250619_173223" # T5H3S2
     
     exp = Experiment2(timestamp=timestamp) 
     exp.run_experiment()

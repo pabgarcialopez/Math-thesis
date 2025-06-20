@@ -2,6 +2,9 @@
 
 from pathlib import Path
 import random
+from typing import List
+
+from tqdm import tqdm
 
 from src.experiments.base_experiment import Experiment
 from src.experiments.utils.loader import load_json
@@ -9,6 +12,7 @@ from src.experiments.utils.logger import log_message, log_data
 from src.experiments.utils.plotter import plot_series
 from src.experiments.utils.computing import measure_minimal_dnf
 from src.experiments.config import LOGS_PATH
+from src.experiments.config import NUM_EXPERIMENTS_PER_CONFIG
 
 class Experiment4(Experiment):
     """
@@ -24,9 +28,10 @@ class Experiment4(Experiment):
       - minterms (worst)
     """
 
-    def __init__(self, timestamps: list[str]):
+    def __init__(self, timestamps: List[str], only_random_bits: List[int]):
         super().__init__("Experiment4")
         self.timestamps = timestamps
+        self.only_random_bits = only_random_bits
         self.exp1_dir = Path(LOGS_PATH) / "experiment1"
         if not self.exp1_dir.exists():
             raise FileNotFoundError(f"Directory not found: {self.exp1_dir}")
@@ -54,16 +59,32 @@ class Experiment4(Experiment):
             self.config_entries.append((ts, cfg_dir, total_bits))
 
         self.results_by_bits = {}
+        
+    def compute_metrics_rand_funcs(self, total_bits, num_funcs):
+        rand_minterms = []
+        rand_literals = []
+        table_size = 2 ** total_bits
+        for _ in range(num_funcs):
+            rand_history_function = [random.choice([False, True]) for _ in range(table_size)]
+            minterms, literals = measure_minimal_dnf(rand_history_function)
+            rand_minterms.append(minterms)
+            rand_literals.append(literals)
+
+        r_mean_minterms = sum(rand_minterms) / num_funcs
+        r_max_minterms  = max(rand_minterms)
+        r_mean_lit      = sum(rand_literals) / num_funcs
+        r_max_lit       = max(rand_literals)
+        return r_mean_minterms, r_max_minterms, r_mean_lit, r_max_lit
 
     def run_experiment(self):
         log_message(f"Experiment4: computing minimal DNF for TM vs Random on {len(self.config_entries)} configs")
 
         for ts, cfg_dir, total_bits in self.config_entries:
-            log_message(f" Processing config '{ts}' with {total_bits} bits")
+            log_message(f"Processing config '{ts}' with {total_bits} bits")
 
             # TM mode: load and annotate each prob*/turing_machines.json with its complexities
-            tm_overall_minterms = []
-            tm_overall_literals = []
+            tm_minterms = []
+            tm_literals = []
             for prob_dir in sorted(cfg_dir.glob('prob*')):
                 tm_list = load_json(prob_dir / 'turing_machines.json')
                 complexities = []
@@ -74,8 +95,8 @@ class Experiment4(Experiment):
                         "minterms": minterms,
                         "literals": literals
                     })
-                    tm_overall_minterms.append(minterms)
-                    tm_overall_literals.append(literals)
+                    tm_minterms.append(minterms)
+                    tm_literals.append(literals)
 
                 # Write tm_complexities.json next to turing_machines.json
                 log_data(
@@ -84,29 +105,13 @@ class Experiment4(Experiment):
                     directory=prob_dir
                 )
 
-            tm_minterms = tm_overall_minterms
-            tm_literals = tm_overall_literals
-
             tm_mean_minterms = sum(tm_minterms) / len(tm_minterms)
             tm_max_minterms  = max(tm_minterms)
             tm_mean_lit      = sum(tm_literals) / len(tm_literals)
             tm_max_lit       = max(tm_literals)
 
-            # --- Random mode: generate random functions with same sample size ---
-            sample_size = len(tm_minterms)
-            rand_minterms = []
-            rand_literals = []
-            table_size = 2 ** total_bits
-            for _ in range(sample_size):
-                rand_history_function = [random.choice([False, True]) for _ in range(table_size)]
-                minterms, literals = measure_minimal_dnf(rand_history_function)
-                rand_minterms.append(minterms)
-                rand_literals.append(literals)
-
-            r_mean_minterms = sum(rand_minterms) / sample_size
-            r_max_minterms  = max(rand_minterms)
-            r_mean_lit      = sum(rand_literals) / sample_size
-            r_max_lit       = max(rand_literals)
+            # Random mode: generate random functions with same sample size
+            r_mean_minterms, r_max_minterms, r_mean_lit, r_max_lit = self.compute_metrics_rand_funcs(total_bits, len(tm_minterms))
 
             # store aggregated results
             self.results_by_bits[total_bits] = {
@@ -123,25 +128,53 @@ class Experiment4(Experiment):
                     'max_literals':  r_max_lit
                 }
             }
+            
+        # Additional step: fill in the 'gaps' of bits with random functions
+        # (3,4,5,6,8,9,13,14 come from TMs; we also want to have 7,10,11,12).
+        for b in tqdm(self.only_random_bits, desc="Computing random only metrics"):
+            r_mean_m, r_max_m, r_mean_l, r_max_l = \
+            self.compute_metrics_rand_funcs(b, NUM_EXPERIMENTS_PER_CONFIG)
+            self.results_by_bits[b] = {
+                'tm':     {
+                    'mean_minterms': None,
+                    'max_minterms':  None,
+                    'mean_literals': None,
+                    'max_literals':  None,
+                },
+                'random': {
+                    'mean_minterms': r_mean_m,
+                    'max_minterms':  r_max_m,
+                    'mean_literals': r_mean_l,
+                    'max_literals':  r_max_l,
+                }
+            }
 
-        # save results to JSON
+        # Save results to JSON (ordered for convinience)
+        sorted_results = {
+            b: self.results_by_bits[b]
+            for b in sorted(self.results_by_bits)
+        }
+        
         log_data(
-            data=self.results_by_bits,
+            data=sorted_results,
             filename='experiment4_results.json',
             directory=self.run_dir
         )
 
-        # prepare data for plotting
+        # Prepare data for plotting
         bits = sorted(self.results_by_bits.keys())
         tm_mean_lit   = [self.results_by_bits[b]['tm']['mean_literals']     for b in bits]
         rand_mean_lit = [self.results_by_bits[b]['random']['mean_literals'] for b in bits]
+
         tm_max_lit    = [self.results_by_bits[b]['tm']['max_literals']      for b in bits]
-        rand_max_lit  = [self.results_by_bits[b]['random']['max_literals']   for b in bits]
+        rand_max_lit  = [self.results_by_bits[b]['random']['max_literals']  for b in bits]
 
         tm_mean_minterms   = [self.results_by_bits[b]['tm']['mean_minterms']     for b in bits]
         rand_mean_minterms = [self.results_by_bits[b]['random']['mean_minterms'] for b in bits]
+
         tm_max_minterms    = [self.results_by_bits[b]['tm']['max_minterms']      for b in bits]
-        rand_max_minterms  = [self.results_by_bits[b]['random']['max_minterms']   for b in bits]
+        rand_max_minterms  = [self.results_by_bits[b]['random']['max_minterms']  for b in bits]
+
 
         labels = ['Funciones aleatorias', 'Funciones de historial']
 
@@ -154,6 +187,7 @@ class Experiment4(Experiment):
                 title=title,
                 xlabel='Número de bits',
                 ylabel=ylabel,
+                log_y=True,
                 filename=filename,
                 directory=self.plot_directory
             )
@@ -170,7 +204,7 @@ class Experiment4(Experiment):
         plot_comparison(
             bits,
             [rand_max_lit, tm_max_lit],
-            ylabel='Número de literales (caso peor)',
+            ylabel='Número de literales en el caso peor',
             title='Comparativa peor caso de literales: aleatorio vs historial',
             filename='lit_peor_comparacion.png'
         )
@@ -186,23 +220,29 @@ class Experiment4(Experiment):
         plot_comparison(
             bits,
             [rand_max_minterms, tm_max_minterms],
-            ylabel='Número de minterms (caso peor)',
+            ylabel='Número de minterms en el caso peor',
             title='Comparativa peor caso de minterms: aleatorio vs historial',
             filename='min_peor_comparacion.png'
-        )
-
+        )    
 
 def run_experiment():
+    only_random_bits = [7, 10, 11, 12]
     timestamps = [
-        "20250618_122014" # T1H0S2
-        "20250618_122025" # T2H1S2
-        "20250618_122045" # T4H2S2
-        "20250618_122125" # T8H3S2
+        "20250618_122014", # T1H0S2 3
+        "20250618_122025", # T2H1S2 5
+        "20250618_122045", # T4H2S2 8
+        "20250618_122125", # T8H3S2 13
 
-        "20250618_181419" # T1H0S3
-        "20250618_181443" # T2H1S3
-        "20250618_181456" # T4H2S3
-        "20250618_181806" # T8H3S3
+        "20250618_181419", # T1H0S3 4
+        "20250618_181443", # T2H1S3 6
+        "20250618_181456", # T4H2S3 9
+        "20250618_181806", # T8H3S3 14
     ]
-    exp = Experiment4(timestamps=timestamps)
+    exp = Experiment4(
+        timestamps=timestamps, 
+        only_random_bits=only_random_bits
+    )
     exp.run_experiment()
+    
+if __name__ == '__main__':
+    run_experiment()

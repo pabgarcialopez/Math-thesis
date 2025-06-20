@@ -1,4 +1,5 @@
 import random
+from typing import List
 from src.tm.machine import TuringMachine
 from src.experiments.config import DEFAULT_TRANSITION_PROBABILITY
 
@@ -86,7 +87,7 @@ def get_configuration(turing_machine):
     state_bits = format(state, f'0{state_padding}b')
     return tape_bits + head_bits + state_bits
     
-def get_projected_history_function(config_history, projection):
+def get_projected_history_function(config_history: List[str], projection: List[int]):
     """
     Returns the projected history function of a Turing Machine's conf_history, by building
     a list of length `2^(len(projection))`, where each position is indexed by 
@@ -131,8 +132,4 @@ def serialize_turing_machine(tm):
         "outcome": tm.outcome,
         "history_function": get_history_function(tm),
         "config_history": list(tm.config_history)
-    }
-    
-    
-# Specific to experiment 6
-    
+    }    

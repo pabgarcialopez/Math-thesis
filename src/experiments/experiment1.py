@@ -445,10 +445,9 @@ def run_experiment():
             # {"tape_bits": 1, "head_bits": 0, "state_bits": 3},
             # {"tape_bits": 2, "head_bits": 1, "state_bits": 3},
             # {"tape_bits": 4, "head_bits": 2, "state_bits": 3},
-            {"tape_bits": 8, "head_bits": 3, "state_bits": 3},
+            # {"tape_bits": 8, "head_bits": 3, "state_bits": 3},
             
-            
-            # {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
+            {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
         ])
     
     exp.run_experiment()
