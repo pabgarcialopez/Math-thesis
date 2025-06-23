@@ -34,6 +34,7 @@ class Experiment5(Experiment):
         # gather all steps & literals from each prob*/ folder
         steps = []
         lits  = []
+        minterms = []
         for prob_dir in sorted(self.cfg_dir.glob("prob*")):
             tm_list   = load_json(prob_dir / "turing_machines.json")
             comp_list = load_json(prob_dir / "tm_complexities.json")
@@ -41,6 +42,7 @@ class Experiment5(Experiment):
             for tm, comp in zip(tm_list, comp_list):
                 steps.append(tm["num_steps"])
                 lits.append(comp["literals"])
+                minterms.append(comp["minterms"])
 
         total = len(steps)
         if total == 0:
@@ -49,27 +51,38 @@ class Experiment5(Experiment):
         # Build 3 equal‐width bins in steps & literals
         bins_steps = equal_width_bins(steps, 3)
         bins_lits  = equal_width_bins(lits,  3)
+        bins_minterms  = equal_width_bins(minterms,  3)
 
         # Class labels
         step_labels = ["Corta", "Media", "Larga"]
-        lit_labels  = ["Fácil", "Moderada", "Difícil"]
+        complexity_labels  = ["Fácil", "Moderada", "Difícil"]
 
-        # Joint histogram 3×3
-        H, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_lits])
+        # Joint histogram 3x3 for literals and minterms
+        H1, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_lits])
+        H2, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_minterms])
 
         # Save summary in JSON 
         summary = {
             "timestamp": self.timestamp,
             "total_TMs": total,
             "step_distribution": {
-                step_labels[i]: int(H[i, :].sum()) for i in range(3)
+                step_labels[i]: int(H1[i, :].sum()) for i in range(3)
             },
-            "complexity_distribution": {
-                lit_labels[j]: int(H[:, j].sum()) for j in range(3)
+            "complexity_distribution_literals": {
+                complexity_labels[j]: int(H1[:, j].sum()) for j in range(3)
             },
-            "joint_counts": {
+            "complexity_distribution_minterms": {
+                complexity_labels[j]: int(H2[:, j].sum()) for j in range(3)
+            },
+            "joint_counts_steps_lits": {
                 step_labels[i]: {
-                    lit_labels[j]: int(H[i, j]) for j in range(3)
+                    complexity_labels[j]: int(H1[i, j]) for j in range(3)
+                }
+                for i in range(3)
+            },
+            "joint_counts_steps_minterms": {
+                step_labels[i]: {
+                    complexity_labels[j]: int(H2[i, j]) for j in range(3)
                 }
                 for i in range(3)
             }
@@ -82,7 +95,7 @@ class Experiment5(Experiment):
         )
 
         # Plot categorical heatmap
-        title = f"Longitud de ejecución vs complejidad (n = {int(sum(self._extract_config_bits()))} bits)"
+        title = f"Longitud de ejecución vs. Complejidad (n = {int(sum(self._extract_config_bits()))} bits)"
         plot_heatmap(
             x=steps,
             y=lits,
@@ -90,11 +103,26 @@ class Experiment5(Experiment):
             bins_x=bins_steps,
             bins_y=bins_lits,
             class_labels_x=step_labels,
-            class_labels_y=lit_labels,
+            class_labels_y=complexity_labels,
             title=title,
             xlabel="Longitud de ejecución",
             ylabel="Complejidad (literales de la FND)",
-            filename="heatmap_length_complexity.png",
+            filename="heatmap_length_complexity_literals.png",
+            directory=self.plot_directory
+        )
+        
+        plot_heatmap(
+            x=steps,
+            y=minterms,
+            hexbin=False,
+            bins_x=bins_steps,
+            bins_y=bins_minterms,
+            class_labels_x=step_labels,
+            class_labels_y=complexity_labels,
+            title=title,
+            xlabel="Longitud de ejecución",
+            ylabel="Complejidad (minterms de la FND)",
+            filename="heatmap_length_complexity_minterms.png",
             directory=self.plot_directory
         )
 
@@ -110,16 +138,6 @@ class Experiment5(Experiment):
 
 
 def run_experiment():
-    
-    # timestamp = "20250618_122014" # T1H0S2
-    # timestamp = "20250618_122025" # T2H1S2
-    # timestamp = "20250618_122045" # T4H2S2
-    # timestamp = "20250618_122125" # T8H3S2
-    
-    # timestamp = "20250618_181419" # T1H0S3
-    # timestamp = "20250618_181443" # T2H1S3
-    # timestamp = "20250618_181456" # T4H2S3
-    # timestamp = "20250618_181806" # T8H3S3
     
     timestamps = [
         "20250618_122014", # T1H0S2 3

@@ -1,4 +1,3 @@
-# src/experiments/utils/plotter.py
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -161,12 +160,8 @@ def plot_histogram(
     directory,
 ):
     """
-    Plot one or more bar‐series at positions x, with dynamic spacing.
-
-    - x: sequence of numeric positions
-    - ys: list of sequences of heights (each same length as x)
-    - width_factor: fraction of the minimal x‐spacing to use for bar‐group width
-    (e.g. 0.8 leaves 20% gaps; must be in (0,1)).
+    Plot one or more bar‐series at positions x, with dynamic spacing
+    and value‐labels on top of each bar.
     """
 
     x = np.array(x)
@@ -194,13 +189,24 @@ def plot_histogram(
     fig, ax = plt.subplots()
     for i, y in enumerate(ys):
         xi = x + offsets[i]
-        ax.bar(
+        bars = ax.bar(
             xi,
             y,
             width=single_w * 0.9,                        # tiny inner gap
             color=(colors[i] if colors else None),
             label=(labels[i] if labels else None)
         )
+        # Annotate each bar with its height
+        for bar in bars:
+            h = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,  # x‐position: center of bar
+                h,                                  # y‐position: top of bar
+                f"{h:.0f}",                         # label text
+                ha='center',
+                va='bottom',
+                fontsize='small'
+            )
 
     ax.set_xticks(x)
     if labels:
@@ -211,5 +217,5 @@ def plot_histogram(
     plt.tight_layout()
 
     # Show and save
-    save_plot(figure=fig, filename=filename, directory=directory) 
+    save_plot(figure=fig, filename=filename, directory=directory)
     show_plot()

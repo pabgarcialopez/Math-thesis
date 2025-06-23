@@ -5,6 +5,7 @@
 # bits drastically changes the measured complexity.
 
 from pathlib import Path
+import time
 
 from src.tm.utils import get_projected_history_function
 from src.experiments.base_experiment import Experiment
@@ -188,19 +189,25 @@ class Experiment3(Experiment):
 
 
 def run_experiment():
-    # timestamp = "20250618_122014" # T1H0S2
-    # timestamp = "20250618_122025" # T2H1S2
-    # timestamp = "20250618_122045" # T4H2S2
-    # timestamp = "20250618_122125" # T8H3S2
     
-    # timestamp = "20250618_181419" # T1H0S3
-    # timestamp = "20250618_181443" # T2H1S3
-    # timestamp = "20250618_181456" # T4H2S3
-    # timestamp = "20250618_181806" # T8H3S3
+    timestamps = [
+        "20250618_122014", # T1H0S2
+        "20250618_122025", # T2H1S2
+        "20250618_122045", # T4H2S2
+        "20250618_122125", # T8H3S2
+        
+        "20250618_181419", # T1H0S3
+        "20250618_181443", # T2H1S3
+        "20250618_181456", # T4H2S3
+        "20250618_181806", # T8H3S3
+        
+        "20250619_173223", # T8H3S3
+    ]
     
-    timestamp = "20250619_173223" # T8H3S3
-    exp = Experiment3(timestamp=timestamp)
-    exp.run_experiment()
+    for timestamp in timestamps:
+        exp = Experiment3(timestamp=timestamp)
+        exp.run_experiment()
+        time.sleep(3)
 
 if __name__ == "__main__":
     run_experiment()
