@@ -2,21 +2,24 @@ from pprint import pprint
 from pyeda.inter import exprvars, truthtable # type: ignore
 from pyeda.boolalg.minimization import espresso_tts # type: ignore
 import numpy as np
+from src.experiments.utils.computing import generate_binary_counter_transitions, measure_minimal_dnf
 from src.tm.utils import get_history_function
 
 class BinaryCounter:
-    def __init__(self, tape_bits, head_bits, state_bits):
-
-
-        self.tape_bits = tape_bits
-        self.head_bits = head_bits
-        self.state_bits = state_bits
+    def __init__(self, config):
+        
+        self.config = config
+        self.tape_bits = config['tape_bits']
+        self.head_bits = config['head_bits']
+        self.state_bits = config['state_bits']
         
         self.LEFT_WALL = "L*"
         self.RIGHT_WALL = "R*"
         
+        self.binary_input = '0' * self.tape_bits
+        
         # Tape with left and right symbols to bound it
-        self.tape = [self.LEFT_WALL] + ['0' for _ in range(tape_bits)] + [self.RIGHT_WALL]
+        self.tape = [self.LEFT_WALL] + list(self.binary_input) + [self.RIGHT_WALL]
 
         # Initialize machine's internal info
         self.outcome = None
@@ -25,11 +28,11 @@ class BinaryCounter:
         self.current_state = 0
         
         # Build the transitions
-        self.transition_function = self._build_transitions()
+        self.transition_function = generate_binary_counter_transitions()
 
         # Initialize config history with initial configuration
-        self.config_history = set([self._get_configuration()])
-        self.config_bits = tape_bits + head_bits + state_bits
+        self.config_history = [self._get_configuration()]
+        self.config_bits = self.tape_bits + self.head_bits + self.state_bits
         
     def _get_configuration(self):
         """
@@ -37,10 +40,6 @@ class BinaryCounter:
         zero-padded so that the head and state each occupy a fixed number of bits.
         """
         
-        # assert 1 <= self.head_position
-        # assert self.head_position <= self.tape_bits 
-        
-
         # Get necessary info
         tape = self.tape
         head = self.head_position
@@ -65,26 +64,6 @@ class BinaryCounter:
         state_bits = format(state, f'0{state_padding}b')
         return tape_bits + head_bits + state_bits
         
-    def _build_transitions(self):
-        # transition_function[(state, symbol)] = (next_state, write_symbol, direction)
-        transition_function = {}
-        
-        # State 0 transitions
-        transition_function[(0, 'L*')] = (1, 'L*', 'R')
-        
-        # State 1 transitions
-        transition_function[(1, '0')] = (0, '1', 'L')
-        transition_function[(1, '1')] = (2, '0', 'R')
-        
-        # State 2 transitions
-        transition_function[(2, '1')] = (2, '0', 'R')
-        transition_function[(2, '0')] = (3, '1', 'L')
-        
-        # State 3 transitions
-        transition_function[(3, '0')] = (3, '0', 'L')
-        transition_function[(3, 'L*')] = (1, 'L*', 'R')
-        
-        return transition_function
 
     def move_head(self, direction):        
         if direction == 'R':
@@ -108,24 +87,25 @@ class BinaryCounter:
         self.tape[self.head_position] = write_symbol
         self.move_head(direction)
         self.num_steps += 1
-
+            
     def run(self):
         """
-        Runs the Turing Machine, recording configurations in self.config_history,
-        until it halts or enters a loop.
+        Runs the Turing Machine until it naturally halts (no transition),
+        registrando todas las configuraciones vistas.
         """
-                
         while True:
             result = self.step()
+            # Si step() devuelve algo distinto de None, significa “halt”
+            if result is not None:
+                self.outcome = "halt"
+                # añadimos la última configuración si queremos
+                self.config_history.append(self._get_configuration())
+                break
+
+            # En caso contrario, seguimos añadiendo configuraciones,
+            # pero no interrumpimos por bucles
             current_config = self._get_configuration()
-            if result is not None: # Machine halted
-                # self.config_history.add(current_config)
-                self.outcome = "halt"  
-                break
-            if current_config in self.config_history: # Entering a loop
-                self.outcome = "loop"
-                break
-            self.config_history.add(current_config)  
+            self.config_history.append(current_config)
             
 class DebugBC(BinaryCounter):
     def run(self):
@@ -144,37 +124,6 @@ class DebugBC(BinaryCounter):
             #     print("  ⇒ loop detected on cfg repeat")
             #     break
             self.config_history.add(cfg)
-            
-def measure_minimal_dnf(bool_vector):
-    """
-    Given a boolean vector (list of 0/1 or False/True) of length 2^n,
-    build a PyEDA truthtable, run espresso_tts,
-    and return (num_terms, total_literals) for the minimal DNF expression.
-    """
-    n = int(np.log2(len(bool_vector)))
-    xs = exprvars('x', n)
-    bool_tuple = tuple(bool(x) for x in bool_vector)
-
-    tt = truthtable(xs, bool_tuple)
-    min_exprs = espresso_tts(tt)
-    if not min_exprs:
-        return 0, 0
-    expr = min_exprs[0]
-
-    ast = expr.to_ast()
-    if isinstance(ast, tuple) and ast[0] == 'or':
-        terms = ast[1:]
-    else:
-        terms = [ast]
-
-    num_terms = len(terms)
-    total_literals = 0
-    for term in terms:
-        if isinstance(term, tuple) and term[0] == 'and':
-            total_literals += len(term) - 1
-        else:
-            total_literals += 1
-    return num_terms, total_literals
 
 if __name__ == "__main__":
     
@@ -224,7 +173,3 @@ if __name__ == "__main__":
     for result in results:
         print(f"Total bits: {result['total_bits']}")
         print(f"Num minterms: {result['num_minterms']}, num literals: {result['num_literals']}")
-    
-    
-
-

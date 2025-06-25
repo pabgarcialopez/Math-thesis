@@ -83,7 +83,7 @@ def get_configuration(turing_machine):
     state_padding = turing_machine.state_bits
 
     tape_bits = ''.join(tape)
-    head_bits = format(head, f'0{head_padding}b')
+    head_bits = '' if head_padding == 0 else format(head, f'0{head_padding}b')
     state_bits = format(state, f'0{state_padding}b')
     return tape_bits + head_bits + state_bits
     

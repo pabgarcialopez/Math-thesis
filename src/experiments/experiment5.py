@@ -34,7 +34,7 @@ class Experiment5(Experiment):
         # gather all steps & literals from each prob*/ folder
         steps = []
         lits  = []
-        minterms = []
+        terms = []
         for prob_dir in sorted(self.cfg_dir.glob("prob*")):
             tm_list   = load_json(prob_dir / "turing_machines.json")
             comp_list = load_json(prob_dir / "tm_complexities.json")
@@ -42,7 +42,7 @@ class Experiment5(Experiment):
             for tm, comp in zip(tm_list, comp_list):
                 steps.append(tm["num_steps"])
                 lits.append(comp["literals"])
-                minterms.append(comp["minterms"])
+                terms.append(comp["terms"])
 
         total = len(steps)
         if total == 0:
@@ -51,15 +51,15 @@ class Experiment5(Experiment):
         # Build 3 equal‐width bins in steps & literals
         bins_steps = equal_width_bins(steps, 3)
         bins_lits  = equal_width_bins(lits,  3)
-        bins_minterms  = equal_width_bins(minterms,  3)
+        bins_terms  = equal_width_bins(terms,  3)
 
         # Class labels
         step_labels = ["Corta", "Media", "Larga"]
         complexity_labels  = ["Fácil", "Moderada", "Difícil"]
 
-        # Joint histogram 3x3 for literals and minterms
+        # Joint histogram 3x3 for literals and terms
         H1, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_lits])
-        H2, _, _ = np.histogram2d(steps, lits, bins=[bins_steps, bins_minterms])
+        H2, _, _ = np.histogram2d(steps, terms, bins=[bins_steps, bins_terms])
 
         # Save summary in JSON 
         summary = {
@@ -71,7 +71,7 @@ class Experiment5(Experiment):
             "complexity_distribution_literals": {
                 complexity_labels[j]: int(H1[:, j].sum()) for j in range(3)
             },
-            "complexity_distribution_minterms": {
+            "complexity_distribution_terms": {
                 complexity_labels[j]: int(H2[:, j].sum()) for j in range(3)
             },
             "joint_counts_steps_lits": {
@@ -80,7 +80,7 @@ class Experiment5(Experiment):
                 }
                 for i in range(3)
             },
-            "joint_counts_steps_minterms": {
+            "joint_counts_steps_terms": {
                 step_labels[i]: {
                     complexity_labels[j]: int(H2[i, j]) for j in range(3)
                 }
@@ -113,16 +113,16 @@ class Experiment5(Experiment):
         
         plot_heatmap(
             x=steps,
-            y=minterms,
+            y=terms,
             hexbin=False,
             bins_x=bins_steps,
-            bins_y=bins_minterms,
+            bins_y=bins_terms,
             class_labels_x=step_labels,
             class_labels_y=complexity_labels,
             title=title,
             xlabel="Longitud de ejecución",
-            ylabel="Complejidad (minterms de la FND)",
-            filename="heatmap_length_complexity_minterms.png",
+            ylabel="Complejidad (términos de la FND)",
+            filename="heatmap_length_complexity_terms.png",
             directory=self.plot_directory
         )
 

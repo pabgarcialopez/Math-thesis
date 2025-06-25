@@ -113,3 +113,97 @@ def generate_long_tm_transition_function(
                 transitions[(s, sym)] = (next_state, other_symbol, move)
 
     return transitions
+
+def generate_binary_counter_transitions():
+    """
+    Only works for machines with 2 bits for state (4 states total)
+    """
+    # transition_function[(state, symbol)] = (next_state, write_symbol, direction)
+    transition_function = {}
+    
+    # State 0 transitions
+    transition_function[(0, 'L*')] = (1, 'L*', 'R')
+    
+    # State 1 transitions
+    transition_function[(1, '0')] = (0, '1', 'L')
+    transition_function[(1, '1')] = (2, '0', 'R')
+    
+    # State 2 transitions
+    transition_function[(2, '1')] = (2, '0', 'R')
+    transition_function[(2, '0')] = (3, '1', 'L')
+    
+    # State 3 transitions
+    transition_function[(3, '0')] = (3, '0', 'L')
+    transition_function[(3, 'L*')] = (1, 'L*', 'R')
+    
+    return transition_function
+
+def generate_alternating_counter_transitions():
+    """
+    Transition table for the 8-state Turing machine that
+
+      • starts with all-zero bits between L* and R*
+      • repeatedly increments the binary counter
+      • halts ⇔  the bits (read MSB→LSB, i.e. from R* towards L*) form
+                 the alternating pattern 1 0 1 0 …  (length arbitrary)
+
+    Alphabet  :  {'L*', 'R*', '0', '1'}
+    Directions:  'L' = left,  'R' = right
+    States     : 0–7   (no explicit accept state; halting = accepting)
+
+    Tuple order:
+        transition_function[(state, symbol)] = (next_state, write_symbol, direction)
+    """
+    tf = {}
+
+    # --- 0 : start / generic rebobinado (head over L*) ------------------------
+    tf[(0, 'L*')] = (1, 'L*', 'R')           # jump to LSB
+    for s in ('0', '1', 'R*'):
+        tf[(0, s)] = (0, s, 'L')             # keep running left until L*
+
+    # --- 1 : increment (check only the LSB) ----------------------------------
+    tf[(1, '0')] = (3, '1', 'R')             # 0 → 1   (no carry)
+    tf[(1, '1')] = (2, '0', 'R')             # start carry
+
+    # --- 2 : propagate carry --------------------------------------------------
+    tf[(2, '1')]  = (2, '0', 'R')            # keep propagating
+    tf[(2, '0')]  = (3, '1', 'R')            # first 0 → 1, carry resolved
+    tf[(2, 'R*')] = (7, 'R*', 'L')           # overflow: adjust, then verify
+
+    # --- 7 : repair after overflow (write new MSB = 1) ------------------------
+    tf[(7, '0')] = (3, '1', 'R')
+    tf[(7, '1')] = (3, '1', 'R')             # (already 1) just continue
+
+    # --- 3 : run right until we see R* ---------------------------------------
+    for s in ('0', '1'):
+        tf[(3, s)] = (3, s, 'R')
+    tf[(3, 'R*')] = (4, 'R*', 'L')           # step onto MSB and begin check
+
+    # --- 4 : verifier – expect 1 ---------------------------------------------
+    tf[(4, '1')] = (5, '1', 'L')             # correct, now expect 0
+    tf[(4, '0')] = (6, '0', 'L')             # mismatch: rewind
+    tf[(4, 'R*')] = (6, 'R*', 'L')           # impossible but safe route
+    # 4 + L*  →  HALT (length even, ends in 0)  → accept
+
+    # --- 5 : verifier – expect 0 ---------------------------------------------
+    tf[(5, '0')] = (4, '0', 'L')             # correct, now expect 1
+    tf[(5, '1')] = (6, '1', 'L')             # mismatch: rewind
+    tf[(5, 'R*')] = (6, 'R*', 'L')
+    # 5 + L*  →  HALT (length odd, ends in 1)  → accept
+
+    # --- 6 : fast rewind after verification failure --------------------------
+    for s in ('0', '1', 'R*'):
+        tf[(6, s)] = (6, s, 'L')             # keep running left
+    tf[(6, 'L*')] = (1, 'L*', 'R')           # restart at LSB
+
+    return tf
+
+
+def counter_max_steps(tape_bits: int, exact = True):
+    """
+    Upeer bound (or exact value) of steps that BinaryCounter gives.
+    """
+    n = tape_bits
+    if exact:
+        return 4 * (1 << n) - n - 3       
+    return 4 * (1 << n)         
