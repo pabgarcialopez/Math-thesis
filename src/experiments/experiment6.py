@@ -226,11 +226,11 @@ class Experiment6(Experiment):
 
 # ——— Ejemplos de tm_factory ———————————————————————————————
 
-def binary_counter_factory(config, hf, inp):
-    return BinaryCounter(config=config)
+def binary_counter_factory(config, hf, inp, alternating=False):
+    return BinaryCounter(config=config, alternating=alternating)
 
 def alternating_factory(config, hf, inp):
-    bc = BinaryCounter(config=config)
+    bc = BinaryCounter(config=config, alternating=True)
 
     def run_alt():
         while True:
