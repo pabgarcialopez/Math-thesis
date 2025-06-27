@@ -149,7 +149,7 @@ def generate_alternating_counter_transitions():
 
     Alphabet  :  {'L*', 'R*', '0', '1'}
     Directions:  'L' = left,  'R' = right
-    States     : 0–7   (no explicit accept state; halting = accepting)
+    States     : 0–7 (no explicit accept state; halting = accepting)
 
     Tuple order:
         transition_function[(state, symbol)] = (next_state, write_symbol, direction)
@@ -199,11 +199,14 @@ def generate_alternating_counter_transitions():
     return tf
 
 
-def counter_max_steps(tape_bits: int, exact = True):
+def counter_max_steps(tape_bits: int, alternating = False):
     """
     Upeer bound (or exact value) of steps that BinaryCounter gives.
     """
-    n = tape_bits
-    if exact:
-        return 4 * (1 << n) - n - 3       
-    return 4 * (1 << n)         
+    t = tape_bits
+    t_2 = 1 << t
+    
+    if alternating: 
+        return 8 / 3 * t_2 * (t + 1)
+    else: 
+        return 4 * t_2 - t - 3

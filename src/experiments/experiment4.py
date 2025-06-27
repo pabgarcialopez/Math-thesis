@@ -105,8 +105,8 @@ class Experiment4(Experiment):
 
             tm_mean_terms = sum(tm_terms) / len(tm_terms)
             tm_max_terms  = max(tm_terms)
-            tm_mean_lit      = sum(tm_literals) / len(tm_literals)
-            tm_max_lit       = max(tm_literals)
+            tm_mean_lit   = sum(tm_literals) / len(tm_literals)
+            tm_max_lit    = max(tm_literals)
 
             # Random mode: generate random functions with same sample size
             r_mean_terms, r_max_terms, r_mean_lit, r_max_lit = self.compute_metrics_rand_funcs(total_bits, len(tm_terms))

@@ -1,18 +1,15 @@
-from pprint import pprint
 from pyeda.inter import exprvars, truthtable # type: ignore
 from pyeda.boolalg.minimization import espresso_tts # type: ignore
-import numpy as np
-from src.experiments.utils.computing import generate_binary_counter_transitions, measure_minimal_dnf
-from src.tm.utils import get_history_function
+from src.experiments.utils.computing import generate_binary_counter_transitions, generate_alternating_counter_transitions, measure_minimal_dnf
 
 class BinaryCounter:
-    def __init__(self, config):
+    def __init__(self, config, alternating=False):
         
         self.config = config
         self.tape_bits = config['tape_bits']
         self.head_bits = config['head_bits']
         self.state_bits = config['state_bits']
-        
+                
         self.LEFT_WALL = "L*"
         self.RIGHT_WALL = "R*"
         
@@ -28,7 +25,8 @@ class BinaryCounter:
         self.current_state = 0
         
         # Build the transitions
-        self.transition_function = generate_binary_counter_transitions()
+        if alternating: self.transition_function = generate_alternating_counter_transitions()
+        else: self.transition_function = generate_binary_counter_transitions()
 
         # Initialize config history with initial configuration
         self.config_history = [self._get_configuration()]
@@ -95,81 +93,8 @@ class BinaryCounter:
         """
         while True:
             result = self.step()
-            # Si step() devuelve algo distinto de None, significa “halt”
             if result is not None:
                 self.outcome = "halt"
-                # añadimos la última configuración si queremos
                 self.config_history.append(self._get_configuration())
                 break
-
-            # En caso contrario, seguimos añadiendo configuraciones,
-            # pero no interrumpimos por bucles
-            current_config = self._get_configuration()
-            self.config_history.append(current_config)
-            
-class DebugBC(BinaryCounter):
-    def run(self):
-        step = 0
-        # print(self._get_configuration())
-        while True:
-            result = self.step()
-            cfg = self._get_configuration()
-            # print(f"Step {step:2d}: tape={''.join(self.tape[1:-1])}  head={self.head_position}  "
-            #       f"state={self.current_state}  config={cfg}")
-            step += 1
-            if result is not None:
-                # print("  ⇒ halted")
-                break
-            # if cfg in self.config_history:
-            #     print("  ⇒ loop detected on cfg repeat")
-            #     break
-            self.config_history.add(cfg)
-
-if __name__ == "__main__":
-    
-    configs = [
-        # {"tape_bits": 2, "head_bits": 1, "state_bits": 2},
-        # {"tape_bits": 3, "head_bits": 1, "state_bits": 2},
-        # {"tape_bits": 3, "head_bits": 2, "state_bits": 2},
-        # {"tape_bits": 4, "head_bits": 2, "state_bits": 2},
-        # {"tape_bits": 5, "head_bits": 2, "state_bits": 2},
-        # {"tape_bits": 5, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 6, "head_bits": 2, "state_bits": 2},
-        # {"tape_bits": 6, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 7, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 8, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 9, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 10, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 11, "head_bits": 3, "state_bits": 2},
-        # {"tape_bits": 12, "head_bits": 3, "state_bits": 2},
-        {"tape_bits": 11, "head_bits": 4, "state_bits": 2},
-        {"tape_bits": 12, "head_bits": 4, "state_bits": 2},
-        # {"tape_bits": 16, "head_bits": 4, "state_bits": 2},
-    ]
-    
-    results = []
-    for i, config in enumerate(configs):
-        print(f"Executing config {i + 1}...")
-        tape_bits = config["tape_bits"]
-        head_bits = config["head_bits"]
-        state_bits = config["state_bits"]
-        
-        total_bits = tape_bits + head_bits + state_bits
-        db = DebugBC(tape_bits=tape_bits, head_bits=head_bits, state_bits=state_bits)
-        db.run()
-
-        # Get history function
-        history_func = get_history_function(db)
-        num_minterms, num_literals = measure_minimal_dnf(history_func)
-
-        result = {
-            "total_bits": total_bits,
-            "num_minterms": num_minterms,
-            "num_literals": num_literals,
-        }
-        
-        results.append(result)
-        
-    for result in results:
-        print(f"Total bits: {result['total_bits']}")
-        print(f"Num minterms: {result['num_minterms']}, num literals: {result['num_literals']}")
+            self.config_history.append(self._get_configuration())

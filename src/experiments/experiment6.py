@@ -26,12 +26,14 @@ class Experiment6(Experiment):
         halting_fraction_range: list,
         *,
         tm_factory=None,
+        alternating=False,
         complexity_binning: str = "absolute"
     ):
         super().__init__("Experiment6")
         self.config = config
         self.hf_range = halting_fraction_range
         self.binning = complexity_binning
+        self.alternating = alternating
         if tm_factory is None:
             tm_factory = (
                 lambda config, hf, inp: generate_turing_machine(
@@ -53,7 +55,7 @@ class Experiment6(Experiment):
 
         # Si el factory es de un solo TM, guardamos clasificación con datos numéricos
         if self.tm_factory.__name__ in ("binary_counter_factory", "alternating_factory"):
-            tm = self.tm_factory(self.config, None, None)
+            tm = self.tm_factory(self.config, None, None, alternating=self.alternating)
             tm.run()
             steps = get_num_steps(tm)
             history = get_history_function(tm)
@@ -63,7 +65,7 @@ class Experiment6(Experiment):
             n = tape_bits + self.config["head_bits"] + self.config["state_bits"]
             # máximos teóricos
             # max_steps = 2 ** tape_bits
-            max_steps = counter_max_steps(tape_bits, exact=True)
+            max_steps = counter_max_steps(tape_bits, alternating=self.alternating)
             max_literals = n * 2 ** (n - 1)
 
             # categorías absolutas
@@ -87,7 +89,7 @@ class Experiment6(Experiment):
                 "steps": steps,
                 "terms": terms,
                 "literals": literals,
-                "max_steps_possible": max_steps,
+                "max_steps_possible": int(max_steps),
                 "max_literals_possible": max_literals,
                 "length_category": length_cat,
                 "complexity_category": comp_cat,
@@ -170,12 +172,10 @@ class Experiment6(Experiment):
         all_lits  = np.array([c["literals"] for c in complexities], dtype=float)
         all_terms = np.array([c["terms"] for c in complexities], dtype=float)
 
-        bins_steps = np.linspace(0, counter_max_steps(tape), 4) if self.binning == "absolute" else \
-            np.linspace(
-                all_steps.min() - 0.5,
-                all_steps.max() + 0.5,
-                4
-            )
+        if self.binning == "absolute":
+            bins_steps = np.linspace(0, counter_max_steps(tape, alternating=self.alternating), 4)
+        else: 
+            bins_steps = np.linspace(all_steps.min() - 0.5, all_steps.max() + 0.5, 4)
 
 
         def make_bins(data, absolute_max):
@@ -229,39 +229,13 @@ class Experiment6(Experiment):
 def binary_counter_factory(config, hf, inp, alternating=False):
     return BinaryCounter(config=config, alternating=alternating)
 
-def alternating_factory(config, hf, inp):
-    bc = BinaryCounter(config=config, alternating=True)
-
-    def run_alt():
-        while True:
-            # Ejecuta un paso
-            result = bc.step()
-
-            # Guarda la configuración recién alcanzada
-            bc.config_history.append(bc._get_configuration())
-
-            # Comprueba si ya tenemos el patrón 0101…
-            tape_str = ''.join(bc.tape[1:-1])
-            if all(tape_str[i] == ("1" if i % 2 != 0 else "0")
-                   for i in range(len(tape_str))):
-                bc.outcome = "pattern found"
-                break
-
-            # Si la MT ha halta­do de forma natural, salimos
-            if result is not None:        # result == "halt"
-                break
-
-    bc.run = run_alt
-    return bc
-
-
 if __name__ == "__main__":
     hf_range = list(np.linspace(0.1, 0.9, 9))
     configs = [
-        {"tape_bits": 1, "head_bits": 0, "state_bits": 2},
-        {"tape_bits": 2, "head_bits": 1, "state_bits": 2},
-        {"tape_bits": 4, "head_bits": 2, "state_bits": 2},
-        {"tape_bits": 8, "head_bits": 3, "state_bits": 2},
+        # {"tape_bits": 1, "head_bits": 0, "state_bits": 2},
+        # {"tape_bits": 2, "head_bits": 1, "state_bits": 2},
+        # {"tape_bits": 4, "head_bits": 2, "state_bits": 2},
+        # {"tape_bits": 8, "head_bits": 3, "state_bits": 2},
 
         {"tape_bits": 1, "head_bits": 0, "state_bits": 3},
         {"tape_bits": 2, "head_bits": 1, "state_bits": 3},
@@ -271,15 +245,15 @@ if __name__ == "__main__":
 
     for cfg in configs:
         # 1) Clasificación contador binario
-        # exp_bin = Experiment6(cfg, [0], tm_factory=binary_counter_factory)
+        # exp_bin = Experiment6(cfg, [0], tm_factory=binary_counter_factory, alternating=False)
         # exp_bin.run_experiment()
         
         # 2) Clasificación patrón alternante
-        # exp_alt = Experiment6(cfg, [0], tm_factory=alternating_factory)
-        # exp_alt.run_experiment()
+        exp_alt = Experiment6(cfg, [0], tm_factory=binary_counter_factory, alternating=True)
+        exp_alt.run_experiment()
         
         # # 3) Heatmaps originales
-        exp_long = Experiment6(cfg, hf_range)
-        exp_long.run_experiment()
+        # exp_long = Experiment6(cfg, hf_range)
+        # exp_long.run_experiment()
         
         time.sleep(3)
