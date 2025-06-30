@@ -22,7 +22,7 @@ se investiga si estas funciones admiten descripciones de tamaño polinómico y e
 
 ## Cómo citar este trabajo
 
-Si utilizas resultados de esta tesis, por favor cítala así:
+Si utilizas resultados de este trabajo, por favor cítalos así:
 
 ```bibtex
 @bachelorsthesis{Garcia-Lopez2025,
