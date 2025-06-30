@@ -55,8 +55,6 @@ def equal_width_bins(data, n_bins):
         return np.array([mn, mn])
     return np.linspace(mn, mx, n_bins + 1)
 
-import random
-
 def generate_long_tm_transition_function(
     num_states: int,
     halting_fraction: float = 0.1,
