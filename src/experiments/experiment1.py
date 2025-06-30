@@ -1,5 +1,3 @@
-# src/experiments/experiment1.py
-
 from tqdm import tqdm
 import time
 from collections import defaultdict

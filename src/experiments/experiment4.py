@@ -176,7 +176,7 @@ class Experiment4(Experiment):
 
         labels = ['Funciones aleatorias', 'Funciones de historial']
 
-        # helper to plot comparison using plot_series
+        # Helper to plot comparison using plot_series
         def plot_comparison(x, ys, ylabel, title, filename):
             plot_series(
                 x=x,

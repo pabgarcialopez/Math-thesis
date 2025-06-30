@@ -89,7 +89,7 @@ class BinaryCounter:
     def run(self):
         """
         Runs the Turing Machine until it naturally halts (no transition),
-        registrando todas las configuraciones vistas.
+        registering all unseen configurations.
         """
         while True:
             result = self.step()

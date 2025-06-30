@@ -224,8 +224,6 @@ class Experiment6(Experiment):
         log_message("[Experiment6] batch heatmaps done.")
 
 
-# ——— Ejemplos de tm_factory ———————————————————————————————
-
 def binary_counter_factory(config, hf, inp, alternating=False):
     return BinaryCounter(config=config, alternating=alternating)
 
@@ -244,11 +242,11 @@ if __name__ == "__main__":
     ]
 
     for cfg in configs:
-        # 1) Clasificación contador binario
+        # 1) Binary counter
         # exp_bin = Experiment6(cfg, [0], tm_factory=binary_counter_factory, alternating=False)
         # exp_bin.run_experiment()
         
-        # 2) Clasificación patrón alternante
+        # 2) Alternating binary counter
         exp_alt = Experiment6(cfg, [0], tm_factory=binary_counter_factory, alternating=True)
         exp_alt.run_experiment()
         

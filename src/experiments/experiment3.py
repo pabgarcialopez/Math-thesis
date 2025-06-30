@@ -1,9 +1,3 @@
-# src/experiments/experiment3.py
-
-# Experiment3 is about comparing the complexities of the Turing Machine’s full state vs. 
-# its tape-only state, under varying transition probabilities, to see if ignoring head/state 
-# bits drastically changes the measured complexity.
-
 from pathlib import Path
 import time
 

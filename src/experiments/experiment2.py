@@ -26,8 +26,8 @@ def load_dataset():
 
 class Experiment2(Experiment):
     """
-    This experiment analyzes logs produced by Experiment1, collecting the "projected functions"
-    and comparing them to a dataset of 5-bit boolean functions.
+    This experiment analyzes logs produced by Experiment1, collecting the configuration histories,
+    translating them to the 5 bit projected history functions and comparing them to a dataset of 5-bit boolean functions.
     """
 
     def __init__(self, timestamp):
