@@ -3,9 +3,9 @@
 ## Resumen
 
 Este trabajo aborda la compactación y eficiencia de las **funciones de historial** de máquinas de Turing. Partiendo de la motivación de la implicación  
-\[
+$$
   \textsf{P} = \textsf{NP} \;\implies\; \textsf{P} = \textsf{PSPACE},
-\]
+$$
 se investiga si estas funciones admiten descripciones de tamaño polinómico y evaluación en tiempo polinómico. Para ello se combinan resultados teóricos con una amplia experimentación numérica.
 
 ## Resultados Teóricos
