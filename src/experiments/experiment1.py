@@ -1,4 +1,4 @@
-from tqdm import tqdm
+from tqdm import tqdm # type: ignore
 import time
 from collections import defaultdict
 
