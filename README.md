@@ -25,7 +25,7 @@ se investiga si estas funciones admiten descripciones de tamaño polinómico y e
 Si utilizas resultados de esta tesis, por favor cítala así:
 
 ```bibtex
-@mastersthesis{Garcia-Lopez2025,
+@bachelorsthesis{Garcia-Lopez2025,
   author       = {Pablo García López},
   title        = {{Estudio de la complejidad de las funciones booleanas de historial de máquinas de Turing}},
   school       = {Universidad Complutense de Madrid},
